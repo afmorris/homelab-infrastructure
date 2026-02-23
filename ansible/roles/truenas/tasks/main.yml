@@ -1,0 +1,225 @@
+---
+# TrueNAS role — configure users, groups, dataset ownership, and NFS shares via API.
+# Runs from the Ansible controller (connection: local) against the TrueNAS REST API.
+# Requires: vault_truenas_api_token in vault.yml
+
+# ---------------------------------------------------------------
+# Connectivity check
+# ---------------------------------------------------------------
+
+- name: Verify TrueNAS API is reachable
+  uri:
+    url: "{{ truenas_api_url }}/system/info"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+  register: truenas_info
+  failed_when: truenas_info.status != 200
+
+- name: Display TrueNAS version
+  debug:
+    msg: "Connected to TrueNAS {{ truenas_info.json.version }}"
+
+# ---------------------------------------------------------------
+# Group management — ensure media group (GID 2000) exists
+# ---------------------------------------------------------------
+
+- name: Query media group by GID
+  uri:
+    url: "{{ truenas_api_url }}/group?gid={{ media_gid }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+  register: truenas_media_group_query
+
+- name: Create media group on TrueNAS
+  uri:
+    url: "{{ truenas_api_url }}/group"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    body_format: json
+    body:
+      name: "{{ media_group_name }}"
+      gid: "{{ media_gid }}"
+      smb: false
+    validate_certs: "{{ truenas_validate_certs }}"
+    status_code: 200
+  when: truenas_media_group_query.json | length == 0
+
+# Re-query to get the internal TrueNAS group ID (needed for user creation)
+- name: Fetch media group record
+  uri:
+    url: "{{ truenas_api_url }}/group?gid={{ media_gid }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+  register: truenas_media_group
+
+# ---------------------------------------------------------------
+# User management — ensure tony user (UID 3001) exists
+# tony's primary group on TrueNAS is media, mirroring the ownership
+# pattern (tony:media) used on all NFS datasets.
+# ---------------------------------------------------------------
+
+- name: Query tony user by UID
+  uri:
+    url: "{{ truenas_api_url }}/user?uid={{ admin_uid }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+  register: truenas_tony_user_query
+
+- name: Create tony user on TrueNAS
+  uri:
+    url: "{{ truenas_api_url }}/user"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    body_format: json
+    body:
+      username: "{{ admin_user_name }}"
+      uid: "{{ admin_uid }}"
+      group: "{{ truenas_media_group.json[0].id }}"
+      group_create: false
+      home: "/home/{{ admin_user_name }}"
+      home_create: true
+      shell: /bin/bash
+      sshpubkey: "{{ lookup('file', 'tony.pub') }}"
+      password_disabled: true
+      smb: false
+    validate_certs: "{{ truenas_validate_certs }}"
+    status_code: 200
+  when: truenas_tony_user_query.json | length == 0
+
+- name: Ensure tony SSH key and shell are current on TrueNAS
+  uri:
+    url: "{{ truenas_api_url }}/user/id/{{ truenas_tony_user_query.json[0].id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    body_format: json
+    body:
+      sshpubkey: "{{ lookup('file', 'tony.pub') }}"
+      shell: /bin/bash
+    validate_certs: "{{ truenas_validate_certs }}"
+    status_code: 200
+  when: truenas_tony_user_query.json | length > 0
+
+# ---------------------------------------------------------------
+# NFS service — ensure it is running before touching shares
+# ---------------------------------------------------------------
+
+- name: Query NFS service state
+  uri:
+    url: "{{ truenas_api_url }}/service?service=nfs"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+  register: truenas_nfs_service
+
+- name: Start NFS service if not running
+  uri:
+    url: "{{ truenas_api_url }}/service/start"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    body_format: json
+    body:
+      service: nfs
+    validate_certs: "{{ truenas_validate_certs }}"
+    status_code: 200
+  when: truenas_nfs_service.json[0].state != 'RUNNING'
+
+- name: Enable NFS service at boot
+  uri:
+    url: "{{ truenas_api_url }}/service/id/{{ truenas_nfs_service.json[0].id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    body_format: json
+    body:
+      enable: true
+    validate_certs: "{{ truenas_validate_certs }}"
+    status_code: 200
+  when: not truenas_nfs_service.json[0].enable
+
+# ---------------------------------------------------------------
+# Dataset ownership — set tony:media on every managed dataset.
+# setperm is a job-based endpoint; we collect job IDs then poll
+# until each job reaches SUCCESS or FAILED.
+# ---------------------------------------------------------------
+
+- name: Set tony:media ownership on datasets
+  uri:
+    url: "{{ truenas_api_url }}/filesystem/setperm"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    body_format: json
+    body:
+      path: "{{ item.path }}"
+      uid: "{{ truenas_dataset_uid }}"
+      gid: "{{ truenas_dataset_gid }}"
+      mode: "{{ truenas_dataset_mode }}"
+      options:
+        stripacl: true
+        recursive: false
+        traverse: false
+    validate_certs: "{{ truenas_validate_certs }}"
+    status_code: 200
+  loop: "{{ truenas_datasets }}"
+  register: truenas_setperm_jobs
+
+- name: Wait for setperm jobs to complete
+  uri:
+    url: "{{ truenas_api_url }}/core/get_jobs?id={{ item.json }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+  register: truenas_job_result
+  until: truenas_job_result.json[0].state in ['SUCCESS', 'FAILED']
+  retries: 30
+  delay: 5
+  failed_when: truenas_job_result.json[0].state == 'FAILED'
+  loop: "{{ truenas_setperm_jobs.results | map(attribute='json') | list }}"
+
+# ---------------------------------------------------------------
+# NFS shares — create a share for each dataset if one does not
+# already exist. Existing shares are left untouched.
+# ---------------------------------------------------------------
+
+- name: Fetch existing NFS shares
+  uri:
+    url: "{{ truenas_api_url }}/sharing/nfs"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+  register: truenas_existing_shares
+
+- name: Create NFS share for managed datasets
+  uri:
+    url: "{{ truenas_api_url }}/sharing/nfs"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    body_format: json
+    body:
+      paths:
+        - "{{ item.path }}"
+      comment: "{{ item.comment }}"
+      ro: false
+      enabled: true
+    validate_certs: "{{ truenas_validate_certs }}"
+    status_code: 200
+  loop: "{{ truenas_datasets }}"
+  when: >
+    item.path not in
+    (truenas_existing_shares.json | map(attribute='paths') | flatten)

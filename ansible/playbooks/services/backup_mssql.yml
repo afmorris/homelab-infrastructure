@@ -1,0 +1,26 @@
+---
+# Backup MSSQL databases
+
+- name: Backup MSSQL databases
+  hosts: svp01sql01
+  tasks:
+    - name: Create backup directory
+      file:
+        path: "{{ mssql_backup_path }}"
+        state: directory
+        owner: "{{ mssql_service_user }}"
+        group: "{{ mssql_service_group }}"
+        mode: '0755'
+
+    - name: Run MSSQL backup
+      shell: |
+        sqlcmd -S localhost -U sa -P {{ mssql_password }} -Q \
+        "BACKUP DATABASE [master] TO DISK = '{{ mssql_backup_path }}/master_backup.bak' WITH COMPRESSION"
+      environment:
+        SQLCMDLOGINTIMEOUT: 30
+      register: backup_result
+      ignore_errors: yes
+
+    - name: Show backup result
+      debug:
+        msg: "{{ backup_result.stdout }}"

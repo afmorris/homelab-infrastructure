@@ -1,0 +1,72 @@
+---
+- name: Configure SSH - disable password authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+  become: true
+  notify: restart sshd
+
+- name: Configure SSH - disable root login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+    state: present
+  become: true
+  notify: restart sshd
+
+- name: Configure SSH - enable key-based authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PubkeyAuthentication'
+    line: 'PubkeyAuthentication yes'
+    state: present
+  become: true
+  notify: restart sshd
+
+- name: Configure SSH - restrict login to admin user only
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?AllowUsers'
+    line: 'AllowUsers {{ admin_user_name }}'
+    state: present
+  become: true
+  notify: restart sshd
+
+- name: Configure SSH - reduce max authentication attempts
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?MaxAuthTries'
+    line: 'MaxAuthTries 3'
+    state: present
+  become: true
+  notify: restart sshd
+
+- name: Configure SSH - shorten login grace period
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?LoginGraceTime'
+    line: 'LoginGraceTime 30'
+    state: present
+  become: true
+  notify: restart sshd
+
+- name: Configure SSH - disconnect idle sessions after 10 minutes
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveInterval'
+    line: 'ClientAliveInterval 300'
+    state: present
+  become: true
+  notify: restart sshd
+
+- name: Configure SSH - set max missed keepalives before disconnect
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveCountMax'
+    line: 'ClientAliveCountMax 2'
+    state: present
+  become: true
+  notify: restart sshd

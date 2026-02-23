@@ -1,0 +1,18 @@
+[Unit]
+Description=Sonarr
+After=network.target
+
+[Service]
+User={{ sonarr_user }}
+Group={{ sonarr_group }}
+Type=simple
+WorkingDirectory={{ sonarr_install_dir }}
+ExecStart={{ sonarr_install_dir }}/Sonarr -nobrowser -data={{ sonarr_config_dir }}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

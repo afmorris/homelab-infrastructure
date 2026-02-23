@@ -1,0 +1,39 @@
+---
+# Plex role - install and configure Plex Media Server
+
+# - name: Download Plex repository
+#   get_url:
+#     url: https://downloads.plex.tv/repo/deb/public/setup.repository.deb
+#     dest: /tmp/plexmediaserver-repo.deb
+
+# - name: Install Plex repository
+#   apt:
+#     deb: /tmp/plexmediaserver-repo.deb
+
+# - name: Install Plex Media Server
+#   apt:
+#     name: plexmediaserver
+#     state: present
+#     update_cache: yes
+
+# - name: Create Plex library directory
+#   file:
+#     path: /mnt/media/plex
+#     state: directory
+#     owner: tony
+#     group: media
+#     mode: '0755'
+#   become: yes
+
+# - name: Start Plex service
+#   systemd:
+#     name: plexmediaserver
+#     enabled: yes
+#     state: started
+
+- name: Allow Plex port through UFW
+  community.general.ufw:
+    rule: allow
+    port: '32400'
+    proto: tcp
+  become: true

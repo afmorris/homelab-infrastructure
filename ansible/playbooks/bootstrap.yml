@@ -1,0 +1,31 @@
+---
+# Bootstrap playbook — first-time setup for a newly provisioned VM.
+#
+# WHEN TO USE THIS:
+#   Run this once against a fresh VM before using site.yml or any targeted
+#   playbook. It applies the full common baseline (users, SSH hardening,
+#   NFS mounts, packages, etc.) and ensures the tony user exists with the
+#   correct UID/GID before any other role runs.
+#
+# NEW VM PREPARATION (Ubuntu installer):
+#   1. Set the hostname to the inventory name (e.g. svp01plex01)
+#   2. Create the default "ubuntu" user — do NOT create tony here.
+#      Ansible will create tony with the correct UID/GID (3001/3001).
+#   3. Paste your SSH public key into the installer's authorized key field.
+#   4. Leave everything else at defaults.
+#
+# RUNNING THIS PLAYBOOK:
+#   ansible-playbook playbooks/bootstrap.yml \
+#     --limit <hostname> \
+#     -u ubuntu \
+#     --ask-become-pass
+#
+#   After this completes, tony exists and has passwordless sudo.
+#   All subsequent runs use tony (the default remote_user in ansible.cfg).
+#
+# NOTE: Storage hosts are excluded — TrueNAS is managed via deploy_storage.yml.
+
+- name: Bootstrap new VM
+  hosts: all,!storage
+  roles:
+    - common

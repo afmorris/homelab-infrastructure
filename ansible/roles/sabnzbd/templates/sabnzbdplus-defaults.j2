@@ -1,0 +1,17 @@
+# SABnzbd+ configuration — managed by Ansible, do not edit manually
+# See /etc/init.d/sabnzbdplus for how these values are used
+
+# User (and optionally group) to run SABnzbd+ as
+USER={{ sabnzbd_user }}:{{ sabnzbd_group }}
+
+# Path to the SABnzbd+ config file
+CONFIG={{ sabnzbd_config_dir }}/sabnzbd.ini
+
+# Address to bind to (leave blank to bind to all interfaces)
+HOST=0.0.0.0
+
+# Port to listen on
+PORT={{ sabnzbd_port }}
+
+# Any extra options to pass to SABnzbd+
+EXTRAOPTS=

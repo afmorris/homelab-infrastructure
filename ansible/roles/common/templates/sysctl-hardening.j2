@@ -1,0 +1,28 @@
+# Managed by Ansible — do not edit manually
+
+# SYN flood protection
+net.ipv4.tcp_syncookies = 1
+
+# Drop packets arriving on an interface they could not have come from
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+
+# Ignore ICMP redirects (prevents routing table manipulation)
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+
+# Log packets with impossible source addresses (martians)
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+
+# Restrict kernel log access to root
+kernel.dmesg_restrict = 1
+
+# Prefer RAM over swap — tuned for VM workloads
+vm.swappiness = 10

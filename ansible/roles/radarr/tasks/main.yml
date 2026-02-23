@@ -1,0 +1,80 @@
+---
+# Radarr role — Movie management
+
+- name: Check if Radarr is already installed
+  ansible.builtin.stat:
+    path: "{{ radarr_install_dir }}"
+  become: true
+  register: radarr_installed
+
+- name: Install Radarr dependencies
+  ansible.builtin.apt:
+    name:
+      - libsqlite3-0
+      - sqlite3
+      - curl
+    state: present
+  become: true
+
+- name: Download Radarr archive
+  ansible.builtin.get_url:
+    url: "{{ radarr_download_url }}"
+    dest: "{{ radarr_download_dest }}"
+  when: not radarr_installed.stat.exists
+
+- name: Extract Radarr to /opt
+  ansible.builtin.unarchive:
+    src: "{{ radarr_download_dest }}"
+    dest: /opt
+    remote_src: true
+  become: true
+  when: not radarr_installed.stat.exists
+
+- name: Clean up downloaded archive
+  ansible.builtin.file:
+    path: "{{ radarr_download_dest }}"
+    state: absent
+  when: not radarr_installed.stat.exists
+
+- name: Set ownership on Radarr install directory
+  ansible.builtin.file:
+    path: "{{ radarr_install_dir }}"
+    state: directory
+    owner: "{{ radarr_user }}"
+    group: "{{ radarr_group }}"
+    mode: '0755'
+  become: true
+
+- name: Create Radarr config directory
+  ansible.builtin.file:
+    path: "{{ radarr_config_dir }}"
+    state: directory
+    owner: "{{ radarr_user }}"
+    group: "{{ radarr_group }}"
+    mode: '0755'
+    recurse: true
+  become: true
+
+- name: Deploy Radarr systemd service
+  ansible.builtin.template:
+    src: radarr.service.j2
+    dest: /etc/systemd/system/radarr.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: restart radarr
+
+- name: Enable and start Radarr service
+  ansible.builtin.systemd:
+    name: radarr
+    enabled: true
+    state: started
+  become: true
+
+- name: Allow Radarr port through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ radarr_port | string }}"
+    proto: tcp
+  become: true

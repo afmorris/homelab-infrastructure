@@ -1,0 +1,39 @@
+---
+# MSSQL role - Microsoft SQL Server
+
+- name: Add Microsoft repository key
+  apt_key:
+    url: https://packages.microsoft.com/keys/microsoft.asc
+    state: present
+
+- name: Add Microsoft SQL Server 2022 repository
+  apt_repository:
+    repo: deb [arch=amd64] https://packages.microsoft.com/ubuntu-{{ ansible_distribution_version }}/prod/ mssql-server-2022 main
+    state: present
+
+- name: Accept MSSQL EULA
+  shell: export ACCEPT_EULA=Y
+
+- name: Install MSSQL Server
+  apt:
+    name: mssql-server
+    state: present
+    update_cache: yes
+  environment:
+    ACCEPT_EULA: "Y"
+    MSSQL_SA_PASSWORD: "{{ mssql_password }}"
+    MSSQL_PID: "Developer"
+
+- name: Create backup directory
+  file:
+    path: "{{ mssql_backup_path }}"
+    state: directory
+    owner: "{{ mssql_service_user }}"
+    group: "{{ mssql_service_group }}"
+    mode: '0755'
+
+- name: Start MSSQL service
+  systemd:
+    name: mssql-server
+    enabled: yes
+    state: started

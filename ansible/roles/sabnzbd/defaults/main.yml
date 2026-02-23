@@ -1,0 +1,8 @@
+---
+sabnzbd_user: sabnzbd
+sabnzbd_group: "{{ media_group_name }}"
+sabnzbd_port: 8080
+
+sabnzbd_config_dir: /var/lib/sabnzbd
+
+sabnzbd_ppa: ppa:jcfp/nobetas

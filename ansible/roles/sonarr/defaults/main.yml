@@ -1,0 +1,10 @@
+---
+sonarr_user: tv
+sonarr_group: "{{ media_group_name }}"
+sonarr_port: 8989
+
+sonarr_install_dir: /opt/Sonarr
+sonarr_config_dir: /var/lib/sonarr
+
+sonarr_download_url: "https://releases.servarr.com/v4-sonarr/latest/Sonarr.main.latest.linux-x64.tar.gz"
+sonarr_download_dest: /tmp/sonarr.tar.gz

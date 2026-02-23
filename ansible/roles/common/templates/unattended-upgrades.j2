@@ -1,0 +1,27 @@
+// Enable the update/upgrade script (0=disable)
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";
+APT::Periodic::Unattended-Upgrade "1";
+
+// Auto reboot if needed (set to "false" for homelab)
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Automatic-Reboot-Time "02:00";
+
+// Auto reboot with users logged in
+Unattended-Upgrade::Automatic-Reboot-WithUsers "false";
+
+// Package blacklist (packages to NOT upgrade automatically)
+Unattended-Upgrade::Package-Blacklist {
+};
+
+// Send mail on error
+Unattended-Upgrade::Mail "root";
+Unattended-Upgrade::MailReport "on-change";
+
+// Remove unused kernel packages
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+// Enable automatic reboot for security updates only
+Unattended-Upgrade::DeviceType "server";

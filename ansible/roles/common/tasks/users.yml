@@ -1,0 +1,55 @@
+---
+- name: Create media group
+  ansible.builtin.group:
+    name: "{{ media_group_name }}"
+    gid: "{{ media_gid }}"
+    state: present
+  become: true
+
+- name: Create tony group
+  ansible.builtin.group:
+    name: "{{ admin_user_name }}"
+    gid: "{{ admin_gid }}"
+    state: present
+  become: true
+
+- name: Create media service users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    uid: "{{ item.uid }}"
+    group: "{{ media_group_name }}"
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+    state: present
+  become: true
+  loop: "{{ media_service_users }}"
+
+- name: Create tony user
+  ansible.builtin.user:
+    name: "{{ admin_user_name }}"
+    uid: "{{ admin_uid }}"
+    group: "{{ admin_user_name }}"
+    groups:
+      - sudo
+      - "{{ media_group_name }}"
+    shell: /bin/zsh
+    home: "/home/{{ admin_user_name }}"
+    create_home: true
+    state: present
+  become: true
+
+- name: Deploy tony SSH authorized key
+  ansible.posix.authorized_key:
+    user: "{{ admin_user_name }}"
+    state: present
+    key: "{{ lookup('file', 'tony.pub') }}"
+  become: true
+
+- name: Configure passwordless sudo for tony
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/tony
+    content: "tony ALL=(ALL) NOPASSWD:ALL\n"
+    mode: '0440'
+    validate: '/usr/sbin/visudo -cf %s'
+  become: true

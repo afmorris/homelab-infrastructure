@@ -1,0 +1,10 @@
+---
+# Utility playbooks for common operations
+
+- name: Restart all Plex instances
+  hosts: svp01plex01
+  tasks:
+    - name: Restart Plex
+      systemd:
+        name: plexmediaserver
+        state: restarted

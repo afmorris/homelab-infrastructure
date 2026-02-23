@@ -1,0 +1,26 @@
+---
+# TrueNAS API connection — override truenas_api_url/truenas_validate_certs in all.yml
+# vault_truenas_api_token must be set in group_vars/all/vault.yml
+
+# Dataset permissions applied to all managed datasets
+truenas_dataset_mode: "775"   # owner=rwx, group=rwx, other=r-x
+truenas_dataset_owner: "{{ admin_user_name }}"   # tony
+truenas_dataset_uid: "{{ admin_uid }}"           # 3001
+truenas_dataset_gid: "{{ media_gid }}"           # 2000 (media group)
+
+# NFS datasets to manage. Each entry needs:
+#   path    — absolute path on TrueNAS (the ZFS dataset mountpoint)
+#   comment — human-readable label shown in TrueNAS UI
+truenas_datasets:
+  - path: /mnt/storage0/media
+    comment: Media library
+  - path: /mnt/storage0/data
+    comment: General data
+  - path: /mnt/storage0/metadata
+    comment: Service metadata
+  - path: /mnt/storage0/transcode
+    comment: Plex transcode scratch
+  - path: /mnt/storage0/usenet
+    comment: Usenet downloads
+  - path: /mnt/storage0/kubernetes
+    comment: Kubernetes persistent volumes

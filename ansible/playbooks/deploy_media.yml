@@ -1,0 +1,28 @@
+---
+# Deploy media services playbook
+
+- name: Deploy media services
+  hosts: media
+  roles:
+    - common
+    - monitoring_client
+
+- name: Deploy Plex
+  hosts: svp01plex01
+  roles:
+    - plex
+
+- name: Deploy Sonarr
+  hosts: svp01sonarr01
+  roles:
+    - sonarr
+
+- name: Deploy Radarr
+  hosts: svp01radarr01
+  roles:
+    - radarr
+
+- name: Deploy SABnzbd
+  hosts: svp01sabnzbd01
+  roles:
+    - sabnzbd

@@ -1,0 +1,15 @@
+---
+# Targeted playbook — configure TrueNAS storage
+#
+# Manages:
+#   - media group (GID 2000) and tony user (UID 3001) on TrueNAS
+#   - tony:media ownership on all NFS datasets
+#   - NFS share creation for each dataset
+#
+# Usage:
+#   ansible-playbook playbooks/deploy_storage.yml --ask-vault-pass
+
+- name: Configure storage (TrueNAS users, dataset ownership, NFS shares)
+  hosts: storage
+  roles:
+    - truenas

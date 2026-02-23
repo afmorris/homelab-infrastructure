@@ -1,0 +1,38 @@
+---
+# Global variables — applied to every host
+
+# Timezone and NTP
+timezone: America/New_York
+ntp_servers:
+  - 0.pool.ntp.org
+  - 1.pool.ntp.org
+
+# TrueNAS API (managed via API, not SSH)
+truenas_api_url: "http://truenas/api/v2.0"
+truenas_validate_certs: false
+
+# ---------------------------------------------------------------
+# Canonical identity definitions
+# These UIDs/GIDs must be consistent across all hosts and TrueNAS.
+# NFS ownership resolves by number, so drift between systems breaks
+# file access.
+# ---------------------------------------------------------------
+
+# Privilege escalation — sourced from vault for sudo password
+ansible_become_password: "{{ vault_ansible_become_password }}"
+
+# Admin
+admin_user_name: tony
+admin_uid: 3001
+admin_gid: 3001        # GID of the tony group
+
+# Shared media group — all media service users and tony are members
+media_group_name: media
+media_gid: 2000
+
+# Media service accounts (nologin, no home, primary group = media)
+media_service_users:
+  - { name: tv,       uid: 1000, comment: "Sonarr service user" }
+  - { name: movies,   uid: 1001, comment: "Radarr service user" }
+  - { name: plex,     uid: 1002, comment: "Plex Media Server service user" }
+  - { name: sabnzbd,  uid: 1003, comment: "SABnzbd service user" }

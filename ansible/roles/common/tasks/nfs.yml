@@ -1,0 +1,33 @@
+---
+- name: Create NFS mount point directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+  become: true
+  loop:
+    - /mnt/data
+    - /mnt/k8s
+    - /mnt/media
+    - /mnt/metadata
+    - /mnt/transcode
+    - /mnt/usenet
+  when: "'storage' not in group_names"
+
+- name: Mount NFS shares
+  ansible.posix.mount:
+    name: "{{ item.path }}"
+    src: "{{ item.src }}"
+    fstype: nfs
+    opts: "defaults,_netdev"
+    state: mounted
+    dump: 0
+    passno: 2
+  become: true
+  loop:
+    - { src: "truenas:/mnt/storage0/data",      path: "/mnt/data" }
+    - { src: "truenas:/mnt/storage0/kubernetes", path: "/mnt/k8s" }
+    - { src: "truenas:/mnt/storage0/media",      path: "/mnt/media" }
+    - { src: "truenas:/mnt/storage0/metadata",   path: "/mnt/metadata" }
+    - { src: "truenas:/mnt/storage0/transcode",  path: "/mnt/transcode" }
+    - { src: "truenas:/mnt/storage0/usenet",     path: "/mnt/usenet" }
+  when: "'storage' not in group_names"

@@ -1,0 +1,13 @@
+---
+# Ansible Galaxy requirements
+# Install with:
+#   ansible-galaxy collection install -r requirements.yml -p ./collections
+
+collections:
+  # Provides: mount, authorized_key, firewalld, sysctl, and more
+  - name: ansible.posix
+    version: ">=1.5.0"
+
+  # Provides: ufw, docker_container, github_release, and more
+  - name: community.general
+    version: ">=8.0.0"

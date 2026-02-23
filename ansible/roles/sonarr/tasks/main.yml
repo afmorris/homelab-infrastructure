@@ -1,0 +1,80 @@
+---
+# Sonarr role — TV show management
+
+- name: Check if Sonarr is already installed
+  ansible.builtin.stat:
+    path: "{{ sonarr_install_dir }}"
+  become: true
+  register: sonarr_installed
+
+- name: Install Sonarr dependencies
+  ansible.builtin.apt:
+    name:
+      - libsqlite3-0
+      - sqlite3
+      - curl
+    state: present
+  become: true
+
+- name: Download Sonarr archive
+  ansible.builtin.get_url:
+    url: "{{ sonarr_download_url }}"
+    dest: "{{ sonarr_download_dest }}"
+  when: not sonarr_installed.stat.exists
+
+- name: Extract Sonarr to /opt
+  ansible.builtin.unarchive:
+    src: "{{ sonarr_download_dest }}"
+    dest: /opt
+    remote_src: true
+  become: true
+  when: not sonarr_installed.stat.exists
+
+- name: Clean up downloaded archive
+  ansible.builtin.file:
+    path: "{{ sonarr_download_dest }}"
+    state: absent
+  when: not sonarr_installed.stat.exists
+
+- name: Set ownership on Sonarr install directory
+  ansible.builtin.file:
+    path: "{{ sonarr_install_dir }}"
+    state: directory
+    owner: "{{ sonarr_user }}"
+    group: "{{ sonarr_group }}"
+    mode: '0755'
+  become: true
+
+- name: Create Sonarr config directory
+  ansible.builtin.file:
+    path: "{{ sonarr_config_dir }}"
+    state: directory
+    owner: "{{ sonarr_user }}"
+    group: "{{ sonarr_group }}"
+    mode: '0755'
+    recurse: true
+  become: true
+
+- name: Deploy Sonarr systemd service
+  ansible.builtin.template:
+    src: sonarr.service.j2
+    dest: /etc/systemd/system/sonarr.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: restart sonarr
+
+- name: Enable and start Sonarr service
+  ansible.builtin.systemd:
+    name: sonarr
+    enabled: true
+    state: started
+  become: true
+
+- name: Allow Sonarr port through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ sonarr_port | string }}"
+    proto: tcp
+  become: true

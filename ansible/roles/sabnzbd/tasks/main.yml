@@ -1,0 +1,63 @@
+---
+# SABnzbd role — Usenet downloader
+
+- name: Check if SABnzbd is already installed
+  ansible.builtin.stat:
+    path: /usr/bin/sabnzbdplus
+  register: sabnzbd_installed
+
+- name: Install software-properties-common
+  ansible.builtin.apt:
+    name: software-properties-common
+    state: present
+  become: true
+  when: not sabnzbd_installed.stat.exists
+
+- name: Add SABnzbd PPA
+  ansible.builtin.apt_repository:
+    repo: "{{ sabnzbd_ppa }}"
+    state: present
+  become: true
+  when: not sabnzbd_installed.stat.exists
+
+- name: Install SABnzbd
+  ansible.builtin.apt:
+    name: sabnzbdplus
+    state: present
+    update_cache: true
+  become: true
+  when: not sabnzbd_installed.stat.exists
+
+- name: Create SABnzbd config directory
+  ansible.builtin.file:
+    path: "{{ sabnzbd_config_dir }}"
+    state: directory
+    owner: "{{ sabnzbd_user }}"
+    group: "{{ sabnzbd_group }}"
+    mode: '0755'
+    recurse: true
+  become: true
+
+- name: Configure SABnzbd service defaults
+  ansible.builtin.template:
+    src: sabnzbdplus-defaults.j2
+    dest: /etc/default/sabnzbdplus
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: restart sabnzbd
+
+- name: Enable and start SABnzbd service
+  ansible.builtin.systemd:
+    name: sabnzbdplus
+    enabled: true
+    state: started
+  become: true
+
+- name: Allow SABnzbd port through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ sabnzbd_port | string }}"
+    proto: tcp
+  become: true

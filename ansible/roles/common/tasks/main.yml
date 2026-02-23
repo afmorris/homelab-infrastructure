@@ -1,0 +1,32 @@
+---
+# Common baseline configuration applied to all hosts
+
+- name: User and group management
+  ansible.builtin.import_tasks: users.yml
+
+- name: Timezone and NTP
+  ansible.builtin.import_tasks: ntp.yml
+
+- name: Package installation
+  ansible.builtin.import_tasks: packages.yml
+
+- name: Hostname configuration
+  ansible.builtin.import_tasks: hostname.yml
+
+- name: SSH hardening
+  ansible.builtin.import_tasks: ssh.yml
+
+- name: Automatic security updates
+  ansible.builtin.import_tasks: security_updates.yml
+
+- name: Firewall
+  ansible.builtin.import_tasks: firewall.yml
+
+- name: Kernel hardening
+  ansible.builtin.import_tasks: sysctl.yml
+
+- name: Fail2ban
+  ansible.builtin.import_tasks: fail2ban.yml
+
+- name: NFS mounts
+  ansible.builtin.import_tasks: nfs.yml

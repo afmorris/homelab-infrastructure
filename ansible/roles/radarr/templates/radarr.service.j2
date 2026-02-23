@@ -1,0 +1,20 @@
+[Unit]
+Description=Radarr
+After=network.target
+
+[Service]
+User={{ radarr_user }}
+Group={{ radarr_group }}
+UMask=0002
+Type=simple
+WorkingDirectory={{ radarr_install_dir }}
+ExecStart={{ radarr_install_dir }}/Radarr -nobrowser -data={{ radarr_config_dir }}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+KillMode=process
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

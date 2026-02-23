@@ -1,0 +1,5 @@
+---
+mssql_port: 1433
+mssql_service_user: mssql
+mssql_service_group: mssql
+mssql_backup_path: /mnt/backups/mssql

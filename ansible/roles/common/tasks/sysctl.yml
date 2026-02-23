@@ -1,0 +1,10 @@
+---
+- name: Deploy kernel hardening settings
+  ansible.builtin.template:
+    src: sysctl-hardening.j2
+    dest: /etc/sysctl.d/99-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: apply sysctl settings
