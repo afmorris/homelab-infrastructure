@@ -49,6 +49,11 @@
   roles:
     - sabnzbd
 
+- name: Deploy Huntarr
+  hosts: svp01huntarr01
+  roles:
+    - huntarr
+
 - name: Configure monitoring stack
   hosts: monitoring
   roles:

@@ -36,3 +36,4 @@ media_service_users:
   - { name: movies,   uid: 1001, comment: "Radarr service user" }
   - { name: plex,     uid: 1002, comment: "Plex Media Server service user" }
   - { name: sabnzbd,  uid: 1003, comment: "SABnzbd service user" }
+  - { name: huntarr,  uid: 1004, comment: "Huntarr service user" }
