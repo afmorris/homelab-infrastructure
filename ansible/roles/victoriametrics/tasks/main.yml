@@ -1,0 +1,139 @@
+---
+# ---------------------------------------------------------------
+# User and directories
+# ---------------------------------------------------------------
+
+- name: Create victoriametrics group
+  ansible.builtin.group:
+    name: "{{ victoriametrics_group }}"
+    system: true
+
+- name: Create victoriametrics user
+  ansible.builtin.user:
+    name: "{{ victoriametrics_user }}"
+    group: "{{ victoriametrics_group }}"
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: false
+
+- name: Create victoriametrics config directory
+  ansible.builtin.file:
+    path: "{{ victoriametrics_config_dir }}"
+    state: directory
+    owner: "{{ victoriametrics_user }}"
+    group: "{{ victoriametrics_group }}"
+    mode: '0755'
+
+- name: Create victoriametrics data directory on NFS
+  ansible.builtin.file:
+    path: "{{ victoriametrics_data_dir }}"
+    state: directory
+    mode: '0777'
+
+# ---------------------------------------------------------------
+# Stop and disable Prometheus if present
+# ---------------------------------------------------------------
+
+- name: Check if prometheus service exists
+  ansible.builtin.stat:
+    path: /etc/systemd/system/prometheus.service
+  register: prometheus_service
+
+- name: Stop and disable prometheus
+  ansible.builtin.systemd:
+    name: prometheus
+    state: stopped
+    enabled: false
+  when: prometheus_service.stat.exists
+
+# ---------------------------------------------------------------
+# Installation — guarded so re-runs don't re-download
+# ---------------------------------------------------------------
+
+- name: Check if victoriametrics is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/victoria-metrics
+  register: vm_installed
+
+- name: Download victoriametrics
+  ansible.builtin.get_url:
+    url: "https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v{{ victoriametrics_version }}/victoria-metrics-linux-amd64-v{{ victoriametrics_version }}.tar.gz"
+    dest: /tmp/victoriametrics.tar.gz
+    mode: '0644'
+  when: not vm_installed.stat.exists
+
+- name: Create victoriametrics extract directory
+  ansible.builtin.file:
+    path: /tmp/victoriametrics_extract
+    state: directory
+    mode: '0755'
+  when: not vm_installed.stat.exists
+
+- name: Extract victoriametrics
+  ansible.builtin.unarchive:
+    src: /tmp/victoriametrics.tar.gz
+    dest: /tmp/victoriametrics_extract
+    remote_src: true
+  when: not vm_installed.stat.exists
+
+- name: Install victoriametrics binary
+  ansible.builtin.copy:
+    src: /tmp/victoriametrics_extract/victoria-metrics-prod
+    dest: /usr/local/bin/victoria-metrics
+    owner: root
+    group: root
+    mode: '0755'
+    remote_src: true
+  when: not vm_installed.stat.exists
+
+- name: Remove victoriametrics archive and extract directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/victoriametrics.tar.gz
+    - /tmp/victoriametrics_extract
+  when: not vm_installed.stat.exists
+
+# ---------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------
+
+- name: Deploy scrape config
+  ansible.builtin.template:
+    src: scrape_config.yml.j2
+    dest: "{{ victoriametrics_config_dir }}/scrape_config.yml"
+    owner: "{{ victoriametrics_user }}"
+    group: "{{ victoriametrics_group }}"
+    mode: '0644'
+  notify: restart victoriametrics
+
+# ---------------------------------------------------------------
+# Systemd service
+# ---------------------------------------------------------------
+
+- name: Deploy victoriametrics systemd service
+  ansible.builtin.template:
+    src: victoriametrics.service.j2
+    dest: /etc/systemd/system/victoriametrics.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart victoriametrics
+
+- name: Enable and start victoriametrics
+  ansible.builtin.systemd:
+    name: victoriametrics
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# ---------------------------------------------------------------
+# Firewall
+# ---------------------------------------------------------------
+
+- name: Allow VictoriaMetrics port through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ victoriametrics_listen_addr.split(':')[1] }}"
+    proto: tcp

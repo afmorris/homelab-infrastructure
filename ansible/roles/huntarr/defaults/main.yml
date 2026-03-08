@@ -1,8 +1,0 @@
----
-huntarr_user: huntarr
-huntarr_group: "{{ media_group_name }}"
-huntarr_port: 9705
-
-huntarr_repo_url: "https://github.com/plexguide/Huntarr.io.git"
-huntarr_install_dir: /opt/huntarr
-huntarr_config_dir: /var/lib/huntarr

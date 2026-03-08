@@ -17,11 +17,10 @@
 # RUNNING THIS PLAYBOOK:
 #   ansible-playbook playbooks/bootstrap.yml \
 #     --limit <hostname> \
-#     -u ubuntu \
 #     --ask-become-pass
 #
 #   After this completes, tony exists and has passwordless sudo.
-#   All subsequent runs use tony (the default remote_user in ansible.cfg).
+#   All subsequent runs use tony (the default ansible_user in group_vars).
 #
 # NOTE: Storage hosts are excluded — TrueNAS is managed via deploy_storage.yml.
 

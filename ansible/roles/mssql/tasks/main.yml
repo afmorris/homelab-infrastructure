@@ -1,39 +1,94 @@
 ---
 # MSSQL role - Microsoft SQL Server
+# Note: Microsoft has not released an mssql-server-2022 package for Ubuntu 24.04.
+# The Ubuntu 22.04 repo is used intentionally and works on 24.04.
 
-- name: Add Microsoft repository key
-  apt_key:
+# ---------------------------------------------------------------
+# Repository
+# ---------------------------------------------------------------
+
+- name: Add Microsoft GPG key
+  ansible.builtin.get_url:
     url: https://packages.microsoft.com/keys/microsoft.asc
-    state: present
+    dest: /etc/apt/keyrings/microsoft.asc
+    mode: '0644'
 
+# Two separate repos: one for the server, one for tools.
+# Microsoft uses ubuntu/22.04/<repo> (forward slashes) — not ubuntu-22.04.
 - name: Add Microsoft SQL Server 2022 repository
-  apt_repository:
-    repo: deb [arch=amd64] https://packages.microsoft.com/ubuntu-{{ ansible_distribution_version }}/prod/ mssql-server-2022 main
-    state: present
+  ansible.builtin.get_url:
+    url: https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2022.list
+    dest: /etc/apt/sources.list.d/mssql-server-2022.list
+    mode: '0644'
 
-- name: Accept MSSQL EULA
-  shell: export ACCEPT_EULA=Y
+- name: Add Microsoft prod repository (mssql-tools18)
+  ansible.builtin.get_url:
+    url: https://packages.microsoft.com/config/ubuntu/22.04/prod.list
+    dest: /etc/apt/sources.list.d/mssql-prod.list
+    mode: '0644'
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+# ---------------------------------------------------------------
+# Installation — guarded so re-runs don't reinstall
+# ---------------------------------------------------------------
+
+- name: Check if mssql-server is already installed
+  ansible.builtin.stat:
+    path: /opt/mssql/bin/sqlservr
+  register: mssql_installed
 
 - name: Install MSSQL Server
-  apt:
+  ansible.builtin.apt:
     name: mssql-server
     state: present
-    update_cache: yes
   environment:
     ACCEPT_EULA: "Y"
     MSSQL_SA_PASSWORD: "{{ mssql_password }}"
     MSSQL_PID: "Developer"
+  when: not mssql_installed.stat.exists
+
+- name: Install mssql-tools18
+  ansible.builtin.apt:
+    name:
+      - mssql-tools18
+      - unixodbc-dev
+    state: present
+  environment:
+    ACCEPT_EULA: "Y"
+
+- name: Symlink sqlcmd into /usr/local/bin
+  ansible.builtin.file:
+    src: /opt/mssql-tools18/bin/sqlcmd
+    dest: /usr/local/bin/sqlcmd
+    state: link
+
+# ---------------------------------------------------------------
+# Directories and service
+# ---------------------------------------------------------------
 
 - name: Create backup directory
-  file:
+  ansible.builtin.file:
     path: "{{ mssql_backup_path }}"
     state: directory
     owner: "{{ mssql_service_user }}"
     group: "{{ mssql_service_group }}"
     mode: '0755'
 
-- name: Start MSSQL service
-  systemd:
+- name: Enable and start MSSQL service
+  ansible.builtin.systemd:
     name: mssql-server
-    enabled: yes
+    enabled: true
     state: started
+
+# ---------------------------------------------------------------
+# Firewall
+# ---------------------------------------------------------------
+
+- name: Allow MSSQL port through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ mssql_port }}"
+    proto: tcp

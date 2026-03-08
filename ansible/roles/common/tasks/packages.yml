@@ -20,5 +20,6 @@
       - fail2ban
       - nfs-common
       - zsh
+      - qemu-guest-agent
     state: present
   become: true

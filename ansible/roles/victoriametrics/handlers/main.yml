@@ -1,7 +1,6 @@
 ---
-- name: restart huntarr
+- name: restart victoriametrics
   ansible.builtin.systemd:
-    name: huntarr
+    name: victoriametrics
     state: restarted
     daemon_reload: true
-  become: true

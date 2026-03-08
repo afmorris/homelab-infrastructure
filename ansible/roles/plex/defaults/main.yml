@@ -1,0 +1,17 @@
+---
+plex_user: plex
+plex_group: "{{ media_group_name }}"
+plex_port: 32400
+
+plex_data_dir: /var/lib/plexmediaserver
+plex_app_support_dir: "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server"
+
+# channel=16 is the public/stable release channel
+plex_download_channel: 16
+plex_download_dest: /tmp/plexmediaserver.deb
+
+# Directories inside plex_app_support_dir that are symlinked to NFS.
+# src is the NFS-backed path; dest is relative to plex_app_support_dir.
+plex_symlinks:
+  - { src: /mnt/metadata/Media,    dest: Media }
+  - { src: /mnt/metadata/Metadata, dest: Metadata }

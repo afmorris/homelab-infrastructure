@@ -1,0 +1,20 @@
+[Unit]
+Description=VictoriaMetrics
+Documentation=https://docs.victoriametrics.com/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ victoriametrics_user }}
+Group={{ victoriametrics_group }}
+Type=simple
+ExecStart=/usr/local/bin/victoria-metrics \
+  -promscrape.config={{ victoriametrics_config_dir }}/scrape_config.yml \
+  -storageDataPath={{ victoriametrics_data_dir }} \
+  -retentionPeriod={{ victoriametrics_retention_period }} \
+  -httpListenAddr={{ victoriametrics_listen_addr }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

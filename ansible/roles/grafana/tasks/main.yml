@@ -1,0 +1,140 @@
+---
+# ---------------------------------------------------------------
+# Repository and installation
+# ---------------------------------------------------------------
+
+- name: Install prerequisite packages
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - software-properties-common
+    state: present
+
+- name: Add Grafana GPG key
+  ansible.builtin.get_url:
+    url: https://apt.grafana.com/gpg.key
+    dest: /etc/apt/keyrings/grafana.asc
+    mode: '0644'
+
+- name: Add Grafana apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    filename: grafana
+    state: present
+
+- name: Install Grafana
+  ansible.builtin.apt:
+    name: grafana
+    state: present
+    update_cache: true
+
+# ---------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------
+
+- name: Configure Grafana admin credentials
+  ansible.builtin.ini_file:
+    path: /etc/grafana/grafana.ini
+    section: security
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    mode: '0640'
+  loop:
+    - { option: admin_user,     value: "{{ grafana_admin_user }}" }
+    - { option: admin_password, value: "{{ grafana_admin_password }}" }
+  notify: restart grafana
+
+# ---------------------------------------------------------------
+# Datasource provisioning
+# ---------------------------------------------------------------
+
+- name: Ensure datasources provisioning directory exists
+  ansible.builtin.file:
+    path: "{{ grafana_provisioning_dir }}/datasources"
+    state: directory
+    owner: root
+    group: grafana
+    mode: '0755'
+
+- name: Provision Prometheus datasource
+  ansible.builtin.template:
+    src: datasource.yml.j2
+    dest: "{{ grafana_provisioning_dir }}/datasources/prometheus.yml"
+    owner: root
+    group: grafana
+    mode: '0640'
+  notify: restart grafana
+
+# ---------------------------------------------------------------
+# Dashboard provisioning
+# ---------------------------------------------------------------
+
+- name: Ensure dashboards provisioning directory exists
+  ansible.builtin.file:
+    path: "{{ grafana_provisioning_dir }}/dashboards"
+    state: directory
+    owner: root
+    group: grafana
+    mode: '0755'
+
+- name: Ensure dashboards storage directory exists
+  ansible.builtin.file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: '0755'
+
+- name: Provision dashboard provider config
+  ansible.builtin.template:
+    src: dashboards.yml.j2
+    dest: "{{ grafana_provisioning_dir }}/dashboards/dashboards.yml"
+    owner: root
+    group: grafana
+    mode: '0640'
+  notify: restart grafana
+
+- name: Check which dashboards are already downloaded
+  ansible.builtin.stat:
+    path: "/var/lib/grafana/dashboards/{{ item.filename }}"
+  loop: "{{ grafana_dashboards }}"
+  register: dashboard_stat
+
+- name: Download Grafana dashboards
+  ansible.builtin.get_url:
+    url: "https://grafana.com/api/dashboards/{{ item.item.id }}/revisions/latest/download"
+    dest: "/var/lib/grafana/dashboards/{{ item.item.filename }}"
+    owner: grafana
+    group: grafana
+    mode: '0640'
+  loop: "{{ dashboard_stat.results }}"
+  when: not item.stat.exists
+  notify: restart grafana
+
+- name: Fix datasource placeholders in downloaded dashboards
+  ansible.builtin.replace:
+    path: "/var/lib/grafana/dashboards/{{ item.filename }}"
+    regexp: '\$\{DS_[A-Z0-9_]+\}'
+    replace: "VictoriaMetrics"
+  loop: "{{ grafana_dashboards }}"
+  notify: restart grafana
+
+# ---------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------
+
+- name: Enable and start Grafana
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: true
+    state: started
+
+# ---------------------------------------------------------------
+# Firewall
+# ---------------------------------------------------------------
+
+- name: Allow Grafana port through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ grafana_port }}"
+    proto: tcp

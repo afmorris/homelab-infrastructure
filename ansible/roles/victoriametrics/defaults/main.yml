@@ -1,0 +1,10 @@
+---
+victoriametrics_version: "1.102.0"
+victoriametrics_user: victoriametrics
+victoriametrics_group: victoriametrics
+victoriametrics_config_dir: /etc/victoriametrics
+victoriametrics_data_dir: /mnt/k8s/victoriametrics
+victoriametrics_listen_addr: "0.0.0.0:8428"
+victoriametrics_retention_period: 30d
+prometheus_scrape_interval: 15s
+prometheus_evaluation_interval: 15s

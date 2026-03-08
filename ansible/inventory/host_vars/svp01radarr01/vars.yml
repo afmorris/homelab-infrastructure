@@ -1,0 +1,5 @@
+---
+exportarr_mode: radarr
+exportarr_port: 9708
+exportarr_app_url: http://localhost:7878
+exportarr_api_key: "{{ vault_radarr_api_key }}"

@@ -1,0 +1,25 @@
+global:
+  scrape_interval: {{ prometheus_scrape_interval }}
+
+scrape_configs:
+  - job_name: 'victoriametrics'
+    static_configs:
+      - targets: ['localhost:8428']
+
+  - job_name: 'node'
+    static_configs:
+{% for host in groups['all'] | difference(groups['storage'] | default([])) %}
+      - targets: ['{{ hostvars[host]["ansible_host"] }}:9100']
+        labels:
+          instance: '{{ host }}'
+{% endfor %}
+
+{% for host in groups['all'] %}
+{% if hostvars[host].exportarr_mode is defined %}
+  - job_name: '{{ hostvars[host]["exportarr_mode"] }}'
+    static_configs:
+      - targets: ['{{ hostvars[host]["ansible_host"] }}:{{ hostvars[host]["exportarr_port"] }}']
+        labels:
+          instance: '{{ host }}'
+{% endif %}
+{% endfor %}

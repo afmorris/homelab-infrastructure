@@ -1,12 +1,6 @@
 ---
 # Master playbook - deploy entire homelab infrastructure
 
-- name: Configure storage (TrueNAS users, dataset ownership, NFS shares)
-  hosts: storage
-  become: false
-  roles:
-    - truenas
-
 - name: Apply common tasks to all hosts
   hosts: all,!storage
   roles:
@@ -38,23 +32,23 @@
   hosts: svp01sonarr01
   roles:
     - sonarr
+    - exportarr
 
 - name: Deploy Radarr
   hosts: svp01radarr01
   roles:
     - radarr
+    - exportarr
 
 - name: Deploy SABnzbd
   hosts: svp01sabnzbd01
   roles:
     - sabnzbd
-
-- name: Deploy Huntarr
-  hosts: svp01huntarr01
-  roles:
-    - huntarr
+    - exportarr
 
 - name: Configure monitoring stack
   hosts: monitoring
   roles:
     - monitoring_client
+    - victoriametrics
+    - grafana

@@ -1,0 +1,11 @@
+---
+grafana_admin_user: admin
+grafana_admin_password: "{{ vault_grafana_admin_password }}"
+grafana_port: 3000
+grafana_provisioning_dir: /etc/grafana/provisioning
+
+grafana_dashboards:
+  - { id: 1860,  filename: node-exporter-full.json }  # Node Exporter Full
+  - { id: 12530, filename: exportarr-sonarr.json }     # Exportarr - Sonarr
+  - { id: 12896, filename: exportarr-radarr.json }     # Exportarr - Radarr
+  - { id: 9567,  filename: exportarr-sabnzbd.json }    # SABnzbd

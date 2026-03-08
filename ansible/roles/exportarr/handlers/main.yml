@@ -1,0 +1,6 @@
+---
+- name: restart exportarr
+  ansible.builtin.systemd:
+    name: "exportarr-{{ exportarr_mode }}"
+    state: restarted
+    daemon_reload: true

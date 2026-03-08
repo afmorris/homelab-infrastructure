@@ -1,0 +1,21 @@
+[Unit]
+Description=Prometheus
+Documentation=https://prometheus.io/docs/introduction/overview/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ prometheus_user }}
+Group={{ prometheus_group }}
+Type=simple
+ExecStart=/usr/local/bin/prometheus \
+  --config.file={{ prometheus_config_dir }}/prometheus.yml \
+  --storage.tsdb.path={{ prometheus_data_dir }} \
+  --web.listen-address={{ prometheus_web_listen_address }} \
+  --web.console.libraries=/usr/local/share/prometheus/console_libraries \
+  --web.console.templates=/usr/local/share/prometheus/consoles
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

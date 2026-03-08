@@ -1,39 +1,104 @@
 ---
-# Plex role - install and configure Plex Media Server
+# Plex Media Server role
 
-# - name: Download Plex repository
-#   get_url:
-#     url: https://downloads.plex.tv/repo/deb/public/setup.repository.deb
-#     dest: /tmp/plexmediaserver-repo.deb
+# ---------------------------------------------------------------
+# Installation — guarded so re-runs don't re-download the deb
+# ---------------------------------------------------------------
 
-# - name: Install Plex repository
-#   apt:
-#     deb: /tmp/plexmediaserver-repo.deb
+- name: Check if Plex is already installed
+  ansible.builtin.stat:
+    path: /usr/lib/plexmediaserver
+  register: plex_installed
 
-# - name: Install Plex Media Server
-#   apt:
-#     name: plexmediaserver
-#     state: present
-#     update_cache: yes
+- name: Download Plex Media Server deb
+  ansible.builtin.get_url:
+    url: "https://plex.tv/downloads/latest/5?channel={{ plex_download_channel }}&build=linux-x86_64&distro=debian&X-Plex-Token=xxxxxxxxxxxxxxxxxxxx"
+    dest: "{{ plex_download_dest }}"
+    mode: '0644'
+  when: not plex_installed.stat.exists
 
-# - name: Create Plex library directory
-#   file:
-#     path: /mnt/media/plex
-#     state: directory
-#     owner: tony
-#     group: media
-#     mode: '0755'
-#   become: yes
-
-# - name: Start Plex service
-#   systemd:
-#     name: plexmediaserver
-#     enabled: yes
-#     state: started
-
-- name: Allow Plex port through UFW
-  community.general.ufw:
-    rule: allow
-    port: '32400'
-    proto: tcp
+- name: Install Plex Media Server
+  ansible.builtin.apt:
+    deb: "{{ plex_download_dest }}"
   become: true
+  when: not plex_installed.stat.exists
+
+- name: Remove downloaded deb
+  ansible.builtin.file:
+    path: "{{ plex_download_dest }}"
+    state: absent
+  when: not plex_installed.stat.exists
+
+# ---------------------------------------------------------------
+# User configuration — add plex to video/render for HW transcode
+# ---------------------------------------------------------------
+
+- name: Add plex user to hardware transcoding groups
+  ansible.builtin.user:
+    name: "{{ plex_user }}"
+    groups:
+      - video
+      - render
+    append: true
+  become: true
+
+# ---------------------------------------------------------------
+# Systemd override — run as plex:media instead of plex:plex
+# ---------------------------------------------------------------
+
+- name: Create systemd override directory for Plex
+  ansible.builtin.file:
+    path: /etc/systemd/system/plexmediaserver.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Deploy systemd service override
+  ansible.builtin.template:
+    src: override.conf.j2
+    dest: /etc/systemd/system/plexmediaserver.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: restart plexmediaserver
+
+# ---------------------------------------------------------------
+# Data directory and symlinks
+# ---------------------------------------------------------------
+
+- name: Ensure Plex app support directory exists
+  ansible.builtin.file:
+    path: "{{ plex_app_support_dir }}"
+    state: directory
+    owner: "{{ plex_user }}"
+    group: "{{ plex_group }}"
+    mode: '0755'
+    recurse: false
+  become: true
+
+- name: Create NFS-backed symlinks inside Plex app support directory
+  ansible.builtin.file:
+    src: "{{ item.src }}"
+    dest: "{{ plex_app_support_dir }}/{{ item.dest }}"
+    state: link
+    owner: "{{ plex_user }}"
+    group: "{{ plex_group }}"
+    force: true
+  become: true
+  loop: "{{ plex_symlinks }}"
+
+# ---------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------
+
+- name: Enable and start Plex Media Server
+  ansible.builtin.systemd:
+    name: plexmediaserver
+    enabled: true
+    state: started
+  become: true
+
+# UFW rule deployed in common play (port 32400 already open)

@@ -1,0 +1,17 @@
+[Unit]
+Description=Exportarr - {{ exportarr_mode | capitalize }} Prometheus Exporter
+After=network.target
+
+[Service]
+User={{ exportarr_user }}
+Group={{ exportarr_group }}
+Type=simple
+ExecStart=/usr/local/bin/exportarr {{ exportarr_mode }} \
+  --url={{ exportarr_app_url }} \
+  --port={{ exportarr_port }}
+Environment="APIKEY={{ exportarr_api_key }}"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+---
+exportarr_mode: sabnzbd
+exportarr_port: 9711
+exportarr_app_url: http://localhost:8080
+exportarr_api_key: "{{ vault_sabnzbd_api_key }}"

@@ -1,0 +1,5 @@
+---
+exportarr_mode: sonarr
+exportarr_port: 9707
+exportarr_app_url: http://localhost:8989
+exportarr_api_key: "{{ vault_sonarr_api_key }}"

@@ -39,3 +39,9 @@
     name: node_exporter
     enabled: yes
     state: started
+
+- name: Allow node exporter through UFW
+  community.general.ufw:
+    rule: allow
+    port: '9100'
+    proto: tcp
