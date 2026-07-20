@@ -1,0 +1,19 @@
+services:
+  cloverleaftrack:
+    image: ghcr.io/afmorris/cloverleaftrack:latest
+    container_name: cloverleaftrack
+    hostname: cloverleaftrack
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://+:80"
+      DefaultConnection: ${DefaultConnection}
+    networks:
+      - cloverleaftrack
+
+networks:
+  cloverleaftrack:
+    name: cloverleaftrack
+    driver: bridge
