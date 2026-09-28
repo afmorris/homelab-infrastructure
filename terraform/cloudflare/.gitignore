@@ -1,0 +1,9 @@
+# Local secrets: Cloudflare API token and state passphrase
+.env
+
+# Encrypted plan files
+tfplan
+*.tfplan
+
+# Scratch output from bootstrap.sh
+.bootstrap/
