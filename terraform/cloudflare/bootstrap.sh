@@ -24,6 +24,10 @@ WIKI_HOSTNAME="wiki.morriscloud.com"
 WIKI_PROJECT="morris-wiki"
 WIKI_PAGES_DOMAIN="${WIKI_PROJECT}.pages.dev"
 
+# Zones in the account that are deliberately NOT managed here.
+#   wildeyed.cloud: retired, left to lapse (see removed_wildeyed_cloud.tf)
+EXCLUDE_ZONES=(wildeyed.cloud)
+
 REGENERATE_DNS=0
 for arg in "$@"; do
   case "$arg" in
@@ -158,6 +162,10 @@ EOF
 (cd "$SCHEMA_DIR" && tofu init -input=false >/dev/null) || die "tofu init failed in $SCHEMA_DIR"
 for z in "${ZONES[@]}"; do
   read -r name id _ <<< "$z"
+  if [[ " ${EXCLUDE_ZONES[*]} " == *" $name "* ]]; then
+    echo "  $name: excluded, not managed here"
+    continue
+  fi
   slug="$(echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g')"
   out="dns_${slug}.tf"
   imp="imports_dns_${slug}.tf"
