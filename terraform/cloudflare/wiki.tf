@@ -14,6 +14,13 @@ data "cloudflare_zone" "wiki" {
 locals {
   account_id   = data.cloudflare_zone.wiki.account.id
   pages_domain = "${var.wiki_project_name}.pages.dev"
+
+  wiki_build_env = {
+    PYTHON_VERSION = {
+      type  = "plain_text"
+      value = "3.12"
+    }
+  }
 }
 
 # --- Pages project ------------------------------------------------------------
@@ -49,14 +56,17 @@ resource "cloudflare_pages_project" "wiki" {
     }
   }
 
+  # The API requires production and preview to agree on fail_open, and the
+  # provider only fills in a default for production, so both are explicit.
+  # Preview deployments are disabled above; its config just mirrors production.
   deployment_configs = {
     production = {
-      env_vars = {
-        PYTHON_VERSION = {
-          type  = "plain_text"
-          value = "3.12"
-        }
-      }
+      fail_open = true
+      env_vars  = local.wiki_build_env
+    }
+    preview = {
+      fail_open = true
+      env_vars  = local.wiki_build_env
     }
   }
 }
@@ -117,6 +127,10 @@ resource "cloudflare_zero_trust_access_application" "wiki" {
 }
 
 resource "cloudflare_zero_trust_access_application" "wiki_pages_dev" {
+  # Access only accepts a pages.dev hostname once a Pages project owns it in
+  # this account; before that it rejects it as "domain does not belong to zone".
+  depends_on = [cloudflare_pages_project.wiki]
+
   account_id       = local.account_id
   name             = "Morris Wiki (pages.dev)"
   type             = "self_hosted"
