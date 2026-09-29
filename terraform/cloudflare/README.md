@@ -2,7 +2,8 @@
 
 Manages the Cloudflare side of the homelab as code:
 
-- **DNS records** for every zone in the account (`dns_<zone>.tf`, generated
+- **DNS records** for every zone in the account except those listed in
+  `EXCLUDE_ZONES` in `bootstrap.sh` (`dns_<zone>.tf`, generated
   from the live zones by `cf-terraforming`, then maintained here)
 - **The family wiki** (`wiki.tf`): the Cloudflare Pages project that builds
   the [`morris-wiki`](https://github.com/afmorris/morris-wiki) repository, the `wiki.morriscloud.com` custom domain and DNS record, and the
