@@ -15,12 +15,10 @@ locals {
   account_id   = data.cloudflare_zone.wiki.account.id
   pages_domain = "${var.wiki_project_name}.pages.dev"
 
-  wiki_build_env = {
-    PYTHON_VERSION = {
-      type  = "plain_text"
-      value = "3.12"
-    }
-  }
+  # No PYTHON_VERSION pin: pinning a version the build image doesn't ship
+  # makes every build compile Python from source (~75s). Zensical's wheel
+  # supports any Python >= 3.10, so the image's preinstalled one is fine.
+  wiki_build_env = {}
 }
 
 # --- Pages project ------------------------------------------------------------
