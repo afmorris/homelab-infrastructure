@@ -1,8 +1,9 @@
 # The family wiki: wiki.morriscloud.com
 #
-# Built by Cloudflare Pages from docs/ in this repository and locked behind
-# Cloudflare Access (email one-time PIN). The runbook for humans is
-# docs/infrastructure/wiki-hosting.md; this file is the source of truth.
+# Built by Cloudflare Pages from the afmorris/morris-wiki repository and
+# locked behind Cloudflare Access (email one-time PIN). The plain-English
+# runbook is docs/infrastructure/wiki-hosting.md in morris-wiki; this file
+# is the source of truth for the settings.
 
 data "cloudflare_zone" "wiki" {
   filter = {
@@ -43,7 +44,7 @@ resource "cloudflare_pages_project" "wiki" {
       # No preview deployments: every preview would get its own URL.
       preview_deployment_setting = "none"
 
-      # Only rebuild when the wiki itself changes, not for Ansible/Tofu edits.
+      # Only rebuild when pages or site settings change, not README edits.
       path_includes = ["docs/*", "mkdocs.yml", "docs-requirements.txt"]
     }
   }

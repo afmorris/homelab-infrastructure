@@ -36,7 +36,7 @@ variable "wiki_repo_owner" {
 variable "wiki_repo_name" {
   description = "GitHub repository the wiki is built from."
   type        = string
-  default     = "homelab-infrastructure"
+  default     = "morris-wiki"
 }
 
 variable "wiki_readers" {

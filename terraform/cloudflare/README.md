@@ -5,7 +5,7 @@ Manages the Cloudflare side of the homelab as code:
 - **DNS records** for every zone in the account (`dns_<zone>.tf`, generated
   from the live zones by `cf-terraforming`, then maintained here)
 - **The family wiki** (`wiki.tf`): the Cloudflare Pages project that builds
-  `docs/`, the `wiki.morriscloud.com` custom domain and DNS record, and the
+  the [`morris-wiki`](https://github.com/afmorris/morris-wiki) repository, the `wiki.morriscloud.com` custom domain and DNS record, and the
   Cloudflare Access applications and **Family** policy that restrict who can
   read it
 
@@ -71,11 +71,11 @@ Dashboard → **Zero Trust** → pick a team name → **Free** plan. Confirm
 ### 3. Let Cloudflare Pages read the GitHub repo
 
 Pages builds straight from GitHub, which needs Cloudflare's GitHub app
-installed on `afmorris/homelab-infrastructure`. The API can't do this part.
+installed on `afmorris/morris-wiki`. The API can't do this part.
 
 Dashboard → **Workers & Pages → Create → Pages → Connect to Git** → install
-the app with access to **only** `homelab-infrastructure` → then **cancel**
-out of the project wizard. OpenTofu creates the project itself.
+the app with access to **only** `morris-wiki` → then **cancel** out of the
+project wizard. OpenTofu creates the project itself.
 
 ## Everyday use
 
