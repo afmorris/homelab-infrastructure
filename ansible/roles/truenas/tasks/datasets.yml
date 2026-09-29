@@ -1,0 +1,33 @@
+---
+# Ensure ZFS datasets exist. Creates missing ones; never modifies or deletes
+# an existing dataset. Parents must be listed before children.
+
+- name: Look up managed datasets
+  uri:
+    url: "{{ truenas_api_url }}/pool/dataset?name={{ item.name | urlencode }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+  loop: "{{ truenas_managed_datasets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: truenas_dataset_lookup
+
+- name: Create missing datasets
+  uri:
+    url: "{{ truenas_api_url }}/pool/dataset"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ vault_truenas_api_token }}"
+    body_format: json
+    body:
+      name: "{{ item.item.name }}"
+      type: FILESYSTEM
+      comments: "{{ item.item.comment }}"
+    validate_certs: "{{ truenas_validate_certs }}"
+    status_code: 200
+  loop: "{{ truenas_dataset_lookup.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.json | length == 0

@@ -22,6 +22,16 @@
     msg: "Connected to TrueNAS {{ truenas_info.json.version }}"
 
 # ---------------------------------------------------------------
+# Datasets and snapshot schedules
+# ---------------------------------------------------------------
+
+- name: Ensure managed datasets exist
+  import_tasks: datasets.yml
+
+- name: Ensure snapshot tasks exist
+  import_tasks: snapshots.yml
+
+# ---------------------------------------------------------------
 # Group management — ensure media group (GID 2000) exists
 # ---------------------------------------------------------------
 

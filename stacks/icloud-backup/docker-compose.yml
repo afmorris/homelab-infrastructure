@@ -1,0 +1,31 @@
+# iCloud Photos backup for the family's Apple IDs.
+#
+# Runs as a TrueNAS custom app ("Install via YAML"), directly on the NAS so
+# it writes straight into the pictures dataset. See README.md.
+#
+# Secrets live in an env file on TrueNAS, not in this YAML, so the YAML can
+# be pasted into the TrueNAS UI as-is.
+
+services:
+  icloud-backup:
+    # 0.x project with frequent releases: pin, and upgrade on purpose.
+    image: michis0806/icloud-backup-docker:0.12.2
+    container_name: icloud-backup
+    restart: unless-stopped
+    # Five accounts with large libraries; the upstream default is 512m.
+    mem_limit: 1g
+    ports:
+      - "30880:8080"
+    env_file:
+      # AUTH_PASSWORD, SECRET_KEY, ICLOUD_SECRET_KEY (see .env.example)
+      - /mnt/storage0/apps/icloud-backup/icloud-backup.env
+    environment:
+      TZ: America/New_York
+      LOG_LEVEL: INFO
+    volumes:
+      # Backup destination for all Apple IDs (the app decides the layout inside).
+      - /mnt/storage0/pictures/icloud:/backups
+      - /mnt/storage0/apps/icloud-backup/config:/config
+      # Only used by the "archive" sync policy; photos use "keep". The app
+      # reports unhealthy if this path is missing, so it's still mounted.
+      - /mnt/storage0/apps/icloud-backup/archive:/archive
