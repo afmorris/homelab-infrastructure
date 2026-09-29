@@ -5,7 +5,7 @@ cf-terraforming emits resources named like
 `terraform_managed_resource_<record id>_0` with the zone ID pasted in as a
 literal. This script:
 
-  * renames each record to something readable (`cname_wiki`, `mx_apex`, ...)
+  * renames each record to something readable (`morriscloud_com_mx_apex`, ...)
   * replaces the literal zone ID with a `data "cloudflare_zone"` lookup
   * drops records that are managed elsewhere (e.g. the wiki CNAME in wiki.tf)
   * writes matching `import` blocks so the first plan adopts, not recreates
@@ -118,6 +118,11 @@ def slugify(text: str) -> str:
 
 
 def friendly_name(record_type: str, record_name: str, zone: str) -> str:
+    """e.g. cloverleaftrack_com_cname_www.
+
+    Prefixed with the zone because resource names must be unique across the
+    whole directory, and most zones have an apex and a www record.
+    """
     name = record_name.rstrip(".").lower()
     if name in (zone, "@"):
         short = "apex"
@@ -126,7 +131,7 @@ def friendly_name(record_type: str, record_name: str, zone: str) -> str:
     else:
         short = name
     short = short.replace("*", "wildcard")
-    return slugify(f"{record_type}_{short}")
+    return slugify(f"{zone}_{record_type}_{short}")
 
 
 def main() -> int:

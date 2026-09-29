@@ -137,6 +137,25 @@ WIKI_RECORD_ID="$(cf "/zones/$WIKI_ZONE_ID/dns_records?name=$WIKI_HOSTNAME" \
 
 bold "Generating DNS config with cf-terraforming"
 TOFU_BIN="$(command -v tofu)"
+
+# cf-terraforming reads the provider schema by running `tofu providers schema`
+# in a directory. Give it a clean one containing only the provider pin, so
+# half-generated or broken dns_*.tf files here can't break later zones.
+PROVIDER_VERSION="$(sed -nE 's/^[[:space:]]+version[[:space:]]*=[[:space:]]*"([0-9][0-9.]*)".*/\1/p' versions.tf | head -1)"
+[[ -n "$PROVIDER_VERSION" ]] || die "Couldn't read the Cloudflare provider version from versions.tf"
+SCHEMA_DIR="$WORK/schema"
+mkdir -p "$SCHEMA_DIR"
+cat > "$SCHEMA_DIR/main.tf" << EOF
+terraform {
+  required_providers {
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "$PROVIDER_VERSION"
+    }
+  }
+}
+EOF
+(cd "$SCHEMA_DIR" && tofu init -input=false >/dev/null) || die "tofu init failed in $SCHEMA_DIR"
 for z in "${ZONES[@]}"; do
   read -r name id _ <<< "$z"
   slug="$(echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g')"
@@ -149,7 +168,7 @@ for z in "${ZONES[@]}"; do
   fi
 
   common=(--resource-type cloudflare_dns_record --zone "$id"
-          --terraform-binary-path "$TOFU_BIN" --terraform-install-path .)
+          --terraform-binary-path "$TOFU_BIN" --terraform-install-path "$SCHEMA_DIR")
   cf-terraforming generate "${common[@]}" > "$WORK/$slug.resources.tf" \
     || die "cf-terraforming generate failed for $name"
   cf-terraforming import --modern-import-block "${common[@]}" > "$WORK/$slug.imports.tf" \
