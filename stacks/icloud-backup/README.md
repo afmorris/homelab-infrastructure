@@ -20,21 +20,28 @@ the three children) into the `pictures` dataset on TrueNAS, using
 Off-site, the Backblaze bucket `morrisphotos` holds `pictures/` (the
 library) and `icloud/` (the iCloud backups).
 
-Datasets and snapshot schedules come from the `truenas` Ansible role
-(`truenas_managed_datasets`, `truenas_snapshot_tasks`). Everything else
-here is set up by hand, once, in the order below.
+The datasets, snapshot schedules, Backblaze tasks, and the app itself are
+all set up by hand in the TrueNAS UI, once, in the order below. This README
+is the record of what should exist.
 
 ## 1. Datasets and snapshots
 
-```sh
-cd ansible
-ansible-playbook playbooks/deploy_storage.yml
-```
+**Datasets** (Datasets → Add Dataset):
 
-Creates `storage0/pictures` (if it doesn't already exist),
-`storage0/apps`, and `storage0/apps/icloud-backup`, and adds snapshot tasks:
-pictures daily (kept 30 days) and monthly (kept 12 months); app config
-daily (kept 14 days).
+| Dataset | Purpose |
+|---|---|
+| `storage0/pictures` | Family photos: `library/` (archive) and `icloud/` (iCloud backups) |
+| `storage0/apps/icloud-backup` | App settings, encrypted Apple ID passwords, 2FA sessions |
+
+**Periodic snapshot tasks** (Data Protection → Periodic Snapshot Tasks):
+
+| Dataset | Schedule | Keep |
+|---|---|---|
+| `storage0/pictures` | Daily, 03:00 | 30 days |
+| `storage0/pictures` | Monthly (1st), 03:30 | 12 months |
+| `storage0/apps/icloud-backup` | Daily, 03:15 | 14 days |
+
+Photos rarely change once written, so long retention costs little space.
 
 ## 2. Move the existing photo library
 
