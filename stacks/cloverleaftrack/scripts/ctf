@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 source /home/tony/.bashrc
 
+# Publish as the dedicated @ctf IAM user (least privilege), not the shared default (@photos) profile.
+export AWS_PROFILE=ctf
+
 set -euo pipefail
 
 # Configuration
@@ -103,6 +106,7 @@ SITEMAP_BASE="https://cloverleaftrack.com"
 log "sitemap.xml: $(grep -c '<loc>' "$DOWNLOAD_DIR/sitemap.xml") URLs"
 
 # Sync to S3
+log "AWS identity: $(aws sts get-caller-identity --query Arn --output text 2>/dev/null | sed -E "s/[0-9]{12}/<acct>/" || echo unknown)"
 log "Syncing to S3 (with deletes)..."
 cd "$DOWNLOAD_DIR"
 aws s3 sync ./ "$S3_BUCKET" --delete 2>&1 | tee -a "$LOG_FILE"

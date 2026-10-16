@@ -41,57 +41,53 @@ hosted runners cannot reach Portainer on the home network.
 
 ## AWS / S3 access
 
-`ctf` is the only thing that writes to AWS. It uses the AWS CLI's `default`
-profile on svp01docker01, read from `/home/tony/.aws/` (`config`, `credentials`).
-No keys are stored in this repository.
+`ctf` is the only thing in this folder that writes to AWS. It publishes as the
+dedicated IAM user `@ctf`: the script sets `AWS_PROFILE=ctf` near the top, and
+the key is read from `/home/tony/.aws/credentials` (`[ctf]`; region in
+`config`). The shared `[default]` profile (`@photos`) is for the photo backup
+and is not used by anything here. No keys are stored in this repository.
 
 | Item | Value |
 |---|---|
-| Identity | IAM user `@photos` (the CLI's `default` profile; confirm with `aws sts get-caller-identity`). It is shared: it also runs the photo backup to S3. |
-| Permissions | The policy `S3FullAccess` (all S3 actions on all buckets in the account). Far more than `ctf` needs; it only needs `s3:ListBucket` on the bucket and `s3:PutObject`/`s3:DeleteObject` on its objects. |
+| Identity | IAM user `@ctf`, profile `ctf`. The script logs which identity ran (`AWS identity: …`) in `~/logs/cloverleaf-generation.log`. |
+| Permissions | One customer-managed policy, `ctf-cloverleaftrack-publish` (below): list the one bucket, and put, delete and abort-multipart-upload on its objects. It cannot list other buckets or touch IAM. |
+| Other identity | `@photos` (`default` profile) has `S3FullAccess` and runs the photo backup to S3. Not used by `ctf`. |
 | Region | `us-east-2` |
 | Bucket | `cloverleaftrack.com`, static website hosting on (index and error document `index.html`, plus a handful of redirect rules for old URLs) |
 | Bucket policy | Public read: anyone may `s3:GetObject` any object. The website endpoint is the CloudFront origin. |
 | Versioning | **Off.** `aws s3 sync --delete` is permanent; the only way back is to re-run `publish-cloverleaftrack`. |
 | CloudFront | Distribution `E1TSP2TC4FETRI` (`d1agn4g5pghhiu.cloudfront.net`), origin `cloverleaftrack.com.s3-website.us-east-2.amazonaws.com`. DNS for `cloverleaftrack.com` points here (`terraform/cloudflare/dns_cloverleaftrack_com.tf`). |
-| Password manager | *AWS – @photos access key (photo backup + ctf export)*. Console sign-in: *AWS – SSO sign-in (morriscloud)* (IAM Identity Center; open the account named *Tony Morris*). Emergency only: *AWS – account (root)* (a pointer to the *Amazon* login in the *Tony and Cindy* vault; MFA in Authy). |
+| Password manager | *AWS – @ctf access key (cloverleaftrack.com export)* (the key in `[ctf]`); *AWS – @photos access key (photo backup + ctf export)* (the shared photo-backup key). Console sign-in: *AWS – SSO sign-in (morriscloud)* (IAM Identity Center; open the account named *Tony Morris*). Emergency only: *AWS – account (root)* (a pointer to the *Amazon* login in the *Tony and Cindy* vault; MFA in Authy). |
 
-Check access from the host:
-
-```sh
-aws sts get-caller-identity
-aws s3 ls s3://cloverleaftrack.com/ | head
-```
-
-To rotate the key: create a new access key for the IAM user in the AWS console,
-put it in `/home/tony/.aws/credentials` (`[default]`), run the two commands
-above, then delete the old key in the console. Because `@photos` is shared with
-the photo backup, update that job's credentials at the same time.
-
-### Planned: a dedicated user for `ctf`
-
-`@photos` can do far more than `ctf` needs, and the photo backup shares it. The
-plan is a separate IAM user, `@ctf`, used only by this export, with this policy
-(not yet created; not yet tested, so confirm with `aws s3 sync --dryrun` before
-switching):
+The policy `ctf-cloverleaftrack-publish`:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     { "Effect": "Allow",
-      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation", "s3:ListBucketMultipartUploads"],
       "Resource": "arn:aws:s3:::cloverleaftrack.com" },
     { "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:DeleteObject"],
+      "Action": ["s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload"],
       "Resource": "arn:aws:s3:::cloverleaftrack.com/*" }
   ]
 }
 ```
 
-Then give `ctf` its own named profile (`[ctf]` in `~/.aws/credentials`, and
-`export AWS_PROFILE=ctf` near the top of the `ctf` script) so it stops using
-`default`, and store the new key as *AWS – @ctf access key (cloverleaftrack.com export)*.
+Check access from the host:
+
+```sh
+aws --profile ctf sts get-caller-identity          # should name user/@ctf
+aws --profile ctf s3 ls s3://cloverleaftrack.com/ | head
+aws --profile ctf s3 ls                            # should be AccessDenied
+```
+
+To rotate the `@ctf` key: in the AWS console create a second access key for
+`@ctf`, store it in the password manager entry, put it in `[ctf]` in
+`/home/tony/.aws/credentials`, run the checks above, then delete the old key in
+the console. Reading objects works even without any permission because the
+bucket policy lets everyone read; that is not a gap in the policy.
 
 If cached pages look stale after an export, CloudFront may still be serving its
 copy; create an invalidation for `/*` on the distribution above.
