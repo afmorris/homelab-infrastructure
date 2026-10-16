@@ -47,14 +47,14 @@ No keys are stored in this repository.
 
 | Item | Value |
 |---|---|
-| Identity | IAM user `@photos` (the CLI's `default` profile; confirm with `aws sts get-caller-identity`). TODO (Tony): confirm whether this user is shared with other sites (MorrisPhotos). |
+| Identity | IAM user `@photos` (the CLI's `default` profile; confirm with `aws sts get-caller-identity`). It is shared: it also runs the photo backup to S3. |
 | Permissions | The policy `S3FullAccess` (all S3 actions on all buckets in the account). Far more than `ctf` needs; it only needs `s3:ListBucket` on the bucket and `s3:PutObject`/`s3:DeleteObject` on its objects. |
 | Region | `us-east-2` |
 | Bucket | `cloverleaftrack.com`, static website hosting on (index and error document `index.html`, plus a handful of redirect rules for old URLs) |
 | Bucket policy | Public read: anyone may `s3:GetObject` any object. The website endpoint is the CloudFront origin. |
 | Versioning | **Off.** `aws s3 sync --delete` is permanent; the only way back is to re-run `publish-cloverleaftrack`. |
 | CloudFront | Distribution `E1TSP2TC4FETRI` (`d1agn4g5pghhiu.cloudfront.net`), origin `cloverleaftrack.com.s3-website.us-east-2.amazonaws.com`. DNS for `cloverleaftrack.com` points here (`terraform/cloudflare/dns_cloverleaftrack_com.tf`). |
-| Password manager | TODO (Tony): name the entry for the AWS account / the `@photos` access key. |
+| Password manager | *AWS – @photos access key (photo backup + ctf export)*; account sign-in: *AWS – account (root)* |
 
 Check access from the host:
 
@@ -65,9 +65,33 @@ aws s3 ls s3://cloverleaftrack.com/ | head
 
 To rotate the key: create a new access key for the IAM user in the AWS console,
 put it in `/home/tony/.aws/credentials` (`[default]`), run the two commands
-above, then delete the old key in the console. There is also an old
-`/home/tony/.aws/credentials.save` (dated 2023) that is not used; once nothing
-needs it, delete it and deactivate the key it holds.
+above, then delete the old key in the console. Because `@photos` is shared with
+the photo backup, update that job's credentials at the same time.
+
+### Planned: a dedicated user for `ctf`
+
+`@photos` can do far more than `ctf` needs, and the photo backup shares it. The
+plan is a separate IAM user, `@ctf`, used only by this export, with this policy
+(not yet created; not yet tested, so confirm with `aws s3 sync --dryrun` before
+switching):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::cloverleaftrack.com" },
+    { "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::cloverleaftrack.com/*" }
+  ]
+}
+```
+
+Then give `ctf` its own named profile (`[ctf]` in `~/.aws/credentials`, and
+`export AWS_PROFILE=ctf` near the top of the `ctf` script) so it stops using
+`default`, and store the new key as *AWS – @ctf access key (cloverleaftrack.com export)*.
 
 If cached pages look stale after an export, CloudFront may still be serving its
 copy; create an invalidation for `/*` on the distribution above.
