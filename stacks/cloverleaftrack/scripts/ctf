@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+source /home/tony/.bashrc
+
+set -euo pipefail
+
+# Configuration
+SITE_URL="https://ctf.morriscloud.com"
+SEARCH_URL="https://ctf.morriscloud.com/static/search-index.json"
+DOWNLOAD_DIR="ctf.morriscloud.com"
+S3_BUCKET="s3://cloverleaftrack.com"
+LOG_FILE="/home/tony/logs/cloverleaf-generation.log"
+TEMP_ROOT="temp"
+
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || { log "ERROR: missing required command: $1"; exit 1; }
+}
+
+require_cmd wget
+require_cmd aws
+
+log "Starting download + S3 sync"
+
+# Clean any prior temp
+rm -rf "$TEMP_ROOT"
+mkdir -p "$TEMP_ROOT"
+
+log "Downloading site with wget..."
+set +e
+wget --recursive \
+     --page-requisites \
+     --html-extension \
+     --convert-links \
+     --domains ctf.morriscloud.com \
+     --directory-prefix="$TEMP_ROOT" \
+     "$SITE_URL" 2>&1 | tee -a "$LOG_FILE"
+WGET_RC=${PIPESTATUS[0]}
+
+wget --recursive \
+     --page-requisites \
+     --html-extension \
+     --convert-links \
+     --domains ctf.morriscloud.com \
+     --cut-dirs=1 \
+     --directory-prefix="$TEMP_ROOT" \
+     "$SEARCH_URL" 2>&1 | tee -a "$LOG_FILE"
+WGET_RC=${PIPESTATUS[0]}
+set -e
+
+log "wget exit code: $WGET_RC"
+# Treat wget's "server issued error response" (often 404s on some assets) as non-fatal
+if [[ "$WGET_RC" -ne 0 && "$WGET_RC" -ne 8 ]]; then
+  log "ERROR: wget failed (exit code $WGET_RC)"
+  exit 1
+fi
+if [[ "$WGET_RC" -eq 8 ]]; then
+  log "WARNING: wget saw some HTTP errors (exit code 8). Continuing."
+fi
+
+# Replace local folder with the new download
+if [[ ! -d "$TEMP_ROOT/$DOWNLOAD_DIR" ]]; then
+  log "ERROR: Expected download folder not found: $TEMP_ROOT/$DOWNLOAD_DIR"
+  log "TEMP_ROOT contents:"
+  ls -la "$TEMP_ROOT" | tee -a "$LOG_FILE"
+  exit 1
+fi
+
+log "Replacing local download directory..."
+rm -rf "$DOWNLOAD_DIR"
+mv "$TEMP_ROOT/$DOWNLOAD_DIR" "$DOWNLOAD_DIR"
+rm -rf "$TEMP_ROOT"
+
+# Static assets that no page links to, so wget never requests them: the OG/Twitter share image (see _SeoMetadata.cshtml).
+log "Fetching unlinked static assets..."
+mkdir -p "$DOWNLOAD_DIR/img"
+HERO_TMP="$(mktemp)"
+if wget -q -O "$HERO_TMP" "$SITE_URL/img/hero-home.jpg" && [[ -s "$HERO_TMP" ]]; then
+  mv "$HERO_TMP" "$DOWNLOAD_DIR/img/hero-home.jpg"
+else
+  rm -f "$HERO_TMP"
+  log "WARNING: could not fetch /img/hero-home.jpg; og:image will 404 until it is fixed."
+fi
+
+# Generate sitemap.xml from the pages that were actually exported. The app's own /sitemap.xml is not usable
+# here: it uses the crawl host (ctf.morriscloud.com) and extensionless paths, but the static site serves
+# <path>.html under https://cloverleaftrack.com. It is also never linked, so wget never requests it.
+log "Generating sitemap.xml from exported pages..."
+SITEMAP_BASE="https://cloverleaftrack.com"
+{
+  echo '<?xml version="1.0" encoding="UTF-8"?>'
+  echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+  (cd "$DOWNLOAD_DIR" && find . -type f -name '*.html' | sed 's#^\./##' | LC_ALL=C sort) |
+  while IFS= read -r page; do
+    [[ "$page" == "index.html" ]] && page=""
+    page="${page//&/&amp;}"
+    echo "  <url><loc>${SITEMAP_BASE}/${page}</loc></url>"
+  done
+  echo '</urlset>'
+} > "$DOWNLOAD_DIR/sitemap.xml"
+log "sitemap.xml: $(grep -c '<loc>' "$DOWNLOAD_DIR/sitemap.xml") URLs"
+
+# Sync to S3
+log "Syncing to S3 (with deletes)..."
+cd "$DOWNLOAD_DIR"
+aws s3 sync ./ "$S3_BUCKET" --delete 2>&1 | tee -a "$LOG_FILE"
+
+log "Completed successfully"

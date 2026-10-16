@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Pulls the latest cloverleaftrack image and recreates the container only if the image changed.
+# Why this exists: the Portainer stack pins :latest and its GitOps poll never sees a change, so it never re-pulls.
+# Runs from tony's crontab shortly before the 03:00 `ctf` export. If the new container is unhealthy, rolls back to the
+# previous image so the export does not crawl a broken site (ctf syncs to S3 with --delete).
+set -euo pipefail
+
+IMAGE="ghcr.io/afmorris/cloverleaftrack:latest"
+COMPOSE_FILE="/mnt/k8s/portainer/compose/5/stacks/cloverleaftrack/docker-compose.yml"
+PROJECT="cloverleaftrack"
+CONTAINER="cloverleaftrack"
+HEALTH_URL="http://localhost:8081/"
+LOG_FILE="/home/tony/logs/deploy-cloverleaftrack.log"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2; }
+compose_up() { sudo -n docker compose -p "$PROJECT" -f "$COMPOSE_FILE" up -d 2>&1 | grep -v 'variable is not set' | tee -a "$LOG_FILE" >&2 || true; }
+
+# One run at a time.
+exec 9>/tmp/deploy-cloverleaftrack.lock
+flock -n 9 || { log "Another deploy is running; exiting."; exit 0; }
+
+before="$(docker image inspect "$IMAGE" --format '{{.Id}}' 2>/dev/null || echo none)"
+
+# Pull as tony: root has no ghcr login. A failed pull leaves the running container untouched.
+if ! docker pull -q "$IMAGE" >/dev/null 2>>"$LOG_FILE"; then
+  log "ERROR: docker pull failed; leaving the running container as is."
+  exit 1
+fi
+
+after="$(docker image inspect "$IMAGE" --format '{{.Id}}')"
+if [[ "$before" == "$after" ]]; then
+  log "No new image (${after:7:12}); nothing to do."
+  exit 0
+fi
+
+log "New image ${after:7:12} (was ${before:7:12}). Recreating $CONTAINER..."
+compose_up
+
+healthy=0
+for _ in $(seq 1 12); do
+  sleep 5
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$HEALTH_URL" || true)"
+  if [[ "$code" == "200" ]]; then healthy=1; break; fi
+done
+
+if [[ "$healthy" -eq 1 ]]; then
+  log "Healthy on ${after:7:12} (HTTP 200 from $HEALTH_URL)."
+  exit 0
+fi
+
+log "ERROR: $CONTAINER not healthy on ${after:7:12} (last HTTP '$code'). Rolling back to ${before:7:12}."
+if [[ "$before" != "none" ]]; then
+  docker tag "$before" "$IMAGE"
+  compose_up
+  log "Rolled back to ${before:7:12}. Investigate the new image before the next run."
+fi
+exit 1
