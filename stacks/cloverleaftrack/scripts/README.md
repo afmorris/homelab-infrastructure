@@ -1,0 +1,122 @@
+# CloverleafTrack publishing scripts
+
+These three scripts run on **svp01docker01**, in `/home/tony/`. They are not
+managed by Ansible: this folder is the version-controlled copy, and the host
+copy is installed by hand (see "Installing a change" below).
+
+The public site (`cloverleaftrack.com`) is a static export, not a running
+application. The app container (`stacks/cloverleaftrack/docker-compose.yml`,
+reachable internally as `ctf.morriscloud.com`) is crawled and the result is
+copied to the S3 bucket `cloverleaftrack.com`, which CloudFront serves.
+
+| Script | What it does | When it runs |
+|---|---|---|
+| `deploy-cloverleaftrack` | Pulls `ghcr.io/afmorris/cloverleaftrack:latest`; if the image changed, recreates the container, checks it answers HTTP 200 on `localhost:8081`, and rolls back to the previous image if not. | Cron, 02:30 daily |
+| `ctf` | Crawls `https://ctf.morriscloud.com` with `wget`, adds the files wget cannot discover by following links (`/img/hero-home.jpg`, a `sitemap.xml` built from the exported pages), then runs `aws s3 sync --delete` to `s3://cloverleaftrack.com`. | Cron, 03:00 daily |
+| `publish-cloverleaftrack` | Runs `deploy-cloverleaftrack`, then `ctf`. Skips the export if the deploy failed or rolled back. | By hand, for a same-day publish |
+
+## Why the deploy script exists
+
+The Portainer stack pins `image: …:latest`. Portainer's GitOps polling only
+redeploys when this repository changes, and merging to the application repo
+never changes it, so new images were never pulled. `deploy-cloverleaftrack`
+does the pull and recreate itself. Changing the Portainer stack to re-pull
+automatically (a webhook from CI) would make it unnecessary, but GitHub's
+hosted runners cannot reach Portainer on the home network.
+
+## Things that are easy to get wrong
+
+- **Pull as `tony`, not with `sudo`.** `tony`'s Docker config holds the GitHub
+  Container Registry login; root has none and the pull is denied.
+- **Recreating the container needs `sudo`.** The compose file lives in
+  Portainer's data folder (`/mnt/k8s/portainer/compose/5/stacks/cloverleaftrack/`),
+  which only root can read. `tony` has passwordless `sudo`, and the script uses
+  `sudo -n docker compose -p cloverleaftrack -f <that file> up -d`.
+- **`ctf` deletes from S3.** `aws s3 sync --delete` removes anything the crawl
+  did not produce. That is why the deploy script rolls back an unhealthy
+  container *before* the export runs.
+- **The crawl only finds linked pages.** Anything nothing links to (the share
+  image, `sitemap.xml`) has to be added to `ctf` explicitly.
+- **The AWS credentials are in `/home/tony/.aws/`** (not in this repository).
+
+## AWS / S3 access
+
+`ctf` is the only thing in this folder that writes to AWS. It publishes as the
+dedicated IAM user `@ctf`: the script sets `AWS_PROFILE=ctf` near the top, and
+the key is read from `/home/tony/.aws/credentials` (`[ctf]`; region in
+`config`). The shared `[default]` profile (`@photos`) is for the photo backup
+and is not used by anything here. No keys are stored in this repository.
+
+| Item | Value |
+|---|---|
+| Identity | IAM user `@ctf`, profile `ctf`. The script logs which identity ran (`AWS identity: …`) in `~/logs/cloverleaf-generation.log`. |
+| Permissions | One customer-managed policy, `ctf-cloverleaftrack-publish` (below): list the one bucket, and put, delete and abort-multipart-upload on its objects. It cannot list other buckets or touch IAM. |
+| Other identity | `@photos` (`default` profile) has `S3FullAccess` and runs the photo backup to S3. Not used by `ctf`. |
+| Region | `us-east-2` |
+| Bucket | `cloverleaftrack.com`, static website hosting on (index and error document `index.html`, plus a handful of redirect rules for old URLs) |
+| Bucket policy | Public read: anyone may `s3:GetObject` any object. The website endpoint is the CloudFront origin. |
+| Versioning | **Off.** `aws s3 sync --delete` is permanent; the only way back is to re-run `publish-cloverleaftrack`. |
+| CloudFront | Distribution `E1TSP2TC4FETRI` (`d1agn4g5pghhiu.cloudfront.net`), origin `cloverleaftrack.com.s3-website.us-east-2.amazonaws.com`. DNS for `cloverleaftrack.com` points here (`terraform/cloudflare/dns_cloverleaftrack_com.tf`). |
+| Password manager | *AWS – @ctf access key (cloverleaftrack.com export)* (the key in `[ctf]`); *AWS – @photos access key (photo backup + ctf export)* (the shared photo-backup key). Console sign-in: *AWS – SSO sign-in (morriscloud)* (IAM Identity Center; open the account named *Tony Morris*). Emergency only: *AWS – account (root)* (a pointer to the *Amazon* login in the *Tony and Cindy* vault; MFA in Authy). |
+
+The policy `ctf-cloverleaftrack-publish`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation", "s3:ListBucketMultipartUploads"],
+      "Resource": "arn:aws:s3:::cloverleaftrack.com" },
+    { "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload"],
+      "Resource": "arn:aws:s3:::cloverleaftrack.com/*" }
+  ]
+}
+```
+
+Check access from the host:
+
+```sh
+aws --profile ctf sts get-caller-identity          # should name user/@ctf
+aws --profile ctf s3 ls s3://cloverleaftrack.com/ | head
+aws --profile ctf s3 ls                            # should be AccessDenied
+```
+
+To rotate the `@ctf` key: in the AWS console create a second access key for
+`@ctf`, store it in the password manager entry, put it in `[ctf]` in
+`/home/tony/.aws/credentials`, run the checks above, then delete the old key in
+the console. Reading objects works even without any permission because the
+bucket policy lets everyone read; that is not a gap in the policy.
+
+If cached pages look stale after an export, CloudFront may still be serving its
+copy; create an invalidation for `/*` on the distribution above.
+
+## Logs
+
+| File on the host | Written by |
+|---|---|
+| `~/logs/deploy-cloverleaftrack.log` | `deploy-cloverleaftrack` |
+| `~/logs/cloverleaf-generation.log` | `ctf` (its own progress lines) |
+| `~/logs/ctf.log` | `ctf` (cron output, including wget and S3 transfer lines) |
+
+## Crontab for `tony` on svp01docker01
+
+```cron
+30 2 * * * /home/tony/deploy-cloverleaftrack >> /home/tony/logs/deploy-cloverleaftrack.cron.log 2>&1
+0 3 * * * /home/tony/ctf >> /home/tony/logs/ctf.log 2>&1
+```
+
+## Rolling back by hand
+
+`deploy-cloverleaftrack` keeps the previous image on the host (it becomes
+untagged). To go back, find its id with `docker image ls -a ghcr.io/afmorris/cloverleaftrack`,
+then `docker tag <id> ghcr.io/afmorris/cloverleaftrack:latest` and re-run the
+`docker compose … up -d` command above.
+
+## Installing a change
+
+```sh
+scp stacks/cloverleaftrack/scripts/<script> tony@svp01docker01:/home/tony/<script>
+ssh tony@svp01docker01 'chmod +x ~/<script>'
+```
