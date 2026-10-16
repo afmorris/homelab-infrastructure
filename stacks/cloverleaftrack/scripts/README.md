@@ -39,6 +39,39 @@ hosted runners cannot reach Portainer on the home network.
   image, `sitemap.xml`) has to be added to `ctf` explicitly.
 - **The AWS credentials are in `/home/tony/.aws/`** (not in this repository).
 
+## AWS / S3 access
+
+`ctf` is the only thing that writes to AWS. It uses the AWS CLI's `default`
+profile on svp01docker01, read from `/home/tony/.aws/` (`config`, `credentials`).
+No keys are stored in this repository.
+
+| Item | Value |
+|---|---|
+| Identity | IAM user `@photos` (the CLI's `default` profile; confirm with `aws sts get-caller-identity`). TODO (Tony): confirm whether this user is shared with other sites (MorrisPhotos). |
+| Permissions | The policy `S3FullAccess` (all S3 actions on all buckets in the account). Far more than `ctf` needs; it only needs `s3:ListBucket` on the bucket and `s3:PutObject`/`s3:DeleteObject` on its objects. |
+| Region | `us-east-2` |
+| Bucket | `cloverleaftrack.com`, static website hosting on (index and error document `index.html`, plus a handful of redirect rules for old URLs) |
+| Bucket policy | Public read: anyone may `s3:GetObject` any object. The website endpoint is the CloudFront origin. |
+| Versioning | **Off.** `aws s3 sync --delete` is permanent; the only way back is to re-run `publish-cloverleaftrack`. |
+| CloudFront | Distribution `E1TSP2TC4FETRI` (`d1agn4g5pghhiu.cloudfront.net`), origin `cloverleaftrack.com.s3-website.us-east-2.amazonaws.com`. DNS for `cloverleaftrack.com` points here (`terraform/cloudflare/dns_cloverleaftrack_com.tf`). |
+| Password manager | TODO (Tony): name the entry for the AWS account / the `@photos` access key. |
+
+Check access from the host:
+
+```sh
+aws sts get-caller-identity
+aws s3 ls s3://cloverleaftrack.com/ | head
+```
+
+To rotate the key: create a new access key for the IAM user in the AWS console,
+put it in `/home/tony/.aws/credentials` (`[default]`), run the two commands
+above, then delete the old key in the console. There is also an old
+`/home/tony/.aws/credentials.save` (dated 2023) that is not used; once nothing
+needs it, delete it and deactivate the key it holds.
+
+If cached pages look stale after an export, CloudFront may still be serving its
+copy; create an invalidation for `/*` on the distribution above.
+
 ## Logs
 
 | File on the host | Written by |
