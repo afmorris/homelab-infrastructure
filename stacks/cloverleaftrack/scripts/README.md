@@ -54,7 +54,7 @@ No keys are stored in this repository.
 | Bucket policy | Public read: anyone may `s3:GetObject` any object. The website endpoint is the CloudFront origin. |
 | Versioning | **Off.** `aws s3 sync --delete` is permanent; the only way back is to re-run `publish-cloverleaftrack`. |
 | CloudFront | Distribution `E1TSP2TC4FETRI` (`d1agn4g5pghhiu.cloudfront.net`), origin `cloverleaftrack.com.s3-website.us-east-2.amazonaws.com`. DNS for `cloverleaftrack.com` points here (`terraform/cloudflare/dns_cloverleaftrack_com.tf`). |
-| Password manager | *AWS – @photos access key (photo backup + ctf export)*. Console sign-in: *AWS – SSO sign-in (morriscloud)* (IAM Identity Center; open the account named *Tony Morris*). Emergency only: *AWS – account (root)*. |
+| Password manager | *AWS – @photos access key (photo backup + ctf export)*. Console sign-in: *AWS – SSO sign-in (morriscloud)* (IAM Identity Center; open the account named *Tony Morris*). Emergency only: *AWS – account (root)* (a pointer to the *Amazon* login in the *Tony and Cindy* vault; MFA in Authy). |
 
 Check access from the host:
 
