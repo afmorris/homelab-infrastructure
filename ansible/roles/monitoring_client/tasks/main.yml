@@ -17,6 +17,8 @@
     src: /tmp/node_exporter.tar.gz
     dest: /tmp/
     remote_src: yes
+  # In check mode the download above doesn't happen, so there is nothing to extract.
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Copy node exporter binary
   copy:
@@ -24,6 +26,7 @@
     dest: /usr/local/bin/node_exporter
     mode: '0755'
     remote_src: yes
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Create node exporter systemd service
   template:
