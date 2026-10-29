@@ -23,11 +23,6 @@
     - mssql
     - monitoring_client
 
-- name: Deploy Plex
-  hosts: svp01plex01
-  roles:
-    - plex
-
 - name: Deploy Sonarr
   hosts: svp01sonarr01
   roles:
@@ -45,10 +40,3 @@
   roles:
     - sabnzbd
     - exportarr
-
-- name: Configure monitoring stack
-  hosts: monitoring
-  roles:
-    - monitoring_client
-    - victoriametrics
-    - grafana

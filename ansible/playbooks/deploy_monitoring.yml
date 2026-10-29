@@ -1,8 +1,0 @@
----
-# Deploy monitoring stack playbook
-
-- name: Configure monitoring stack
-  hosts: monitoring
-  roles:
-    - common
-    - monitoring_client
