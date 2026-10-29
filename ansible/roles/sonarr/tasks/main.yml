@@ -52,7 +52,6 @@
     owner: "{{ sonarr_user }}"
     group: "{{ sonarr_group }}"
     mode: '0755'
-    recurse: true
   become: true
 
 - name: Deploy Sonarr systemd service

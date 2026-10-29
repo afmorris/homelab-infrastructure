@@ -10,7 +10,6 @@
     - /mnt/media
     - /mnt/metadata
     - /mnt/transcode
-    - /mnt/usenet
   when: "'storage' not in group_names"
 
 - name: Mount NFS shares
@@ -29,5 +28,14 @@
     - { src: "truenas:/mnt/storage0/media",      path: "/mnt/media" }
     - { src: "truenas:/mnt/storage0/metadata",   path: "/mnt/metadata" }
     - { src: "truenas:/mnt/storage0/transcode",  path: "/mnt/transcode" }
-    - { src: "truenas:/mnt/storage0/usenet",     path: "/mnt/usenet" }
+  when: "'storage' not in group_names"
+
+# TrueNAS no longer exports usenet (SABnzbd works under /mnt/media/usenet), so
+# the old entry could never mount. Remove it where it is still in fstab.
+# Safe to delete this task once every machine has had one real run.
+- name: Remove the old usenet NFS entry
+  ansible.posix.mount:
+    path: /mnt/usenet
+    state: absent
+  become: true
   when: "'storage' not in group_names"

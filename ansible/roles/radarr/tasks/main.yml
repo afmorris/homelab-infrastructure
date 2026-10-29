@@ -52,7 +52,6 @@
     owner: "{{ radarr_user }}"
     group: "{{ radarr_group }}"
     mode: '0755'
-    recurse: true
   become: true
 
 - name: Deploy Radarr systemd service
