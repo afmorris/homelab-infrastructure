@@ -68,6 +68,8 @@ ansible-playbook playbooks/services/backup_mssql.yml
 ```
 
 ## Vault Secrets
+The vault password is in 1Password (Home vault, item "Ansible vault password"). `ansible.cfg` reads it from `~/.ansible_vault_pass`; to use it, run `op read "op://Home/Ansible vault password/password" > ~/.ansible_vault_pass && chmod 600 ~/.ansible_vault_pass`.
+
 Add these to your vault.yml and encrypt with:
 ```bash
 ansible-vault edit ansible/group_vars/vault.yml
@@ -78,7 +80,7 @@ Required variables:
 vault_sonarr_api_key: <your_key>
 vault_radarr_api_key: <your_key>
 vault_sabnzbd_api_key: <your_key>
-vault_mssql_password: <your_password>
+mssql_password: <your_password>
 vault_truenas_api_token: <your_token>
 vault_ansible_become_password: <your_sudo_password>
 ```
