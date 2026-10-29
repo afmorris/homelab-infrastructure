@@ -1,0 +1,42 @@
+# Semaphore: scheduled Ansible runs for the homelab.
+#
+# Runs on svp01docker01 as a Portainer stack. It only runs `--check --diff`
+# on a schedule; applying a change stays a manual click. Home Control reads
+# the results with a read-only API token.
+#
+# This container holds SSH keys that can sudo on the machines, so it stays
+# off the same stack as anything else. Secrets come from the Portainer stack
+# environment (see .env.example), never from this file.
+
+services:
+  semaphore:
+    # Pin, and upgrade on purpose.
+    image: semaphoreui/semaphore:v2.10.22
+    container_name: semaphore
+    restart: unless-stopped
+    ports:
+      # LAN only; Home Control and the browser reach it here.
+      - "3000:3000"
+    # The host's own resolver is a loopback stub that containers can't use, so
+    # Docker falls back to public DNS and the svp01* names don't resolve. Point
+    # at the router (which knows them) instead.
+    dns:
+      - 192.168.1.1
+    dns_search:
+      - morriscloud.com
+    environment:
+      TZ: America/New_York
+      SEMAPHORE_DB_DIALECT: bolt
+      SEMAPHORE_ADMIN: admin
+      SEMAPHORE_ADMIN_NAME: Tony
+      SEMAPHORE_ADMIN_EMAIL: tony@morriscloud.com
+      SEMAPHORE_ADMIN_PASSWORD: ${SEMAPHORE_ADMIN_PASSWORD}
+      # Encrypts the stored SSH keys and vault password at rest.
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: ${SEMAPHORE_ACCESS_KEY_ENCRYPTION}
+    volumes:
+      - semaphore-data:/var/lib/semaphore
+      - semaphore-config:/etc/semaphore
+
+volumes:
+  semaphore-data:
+  semaphore-config:
