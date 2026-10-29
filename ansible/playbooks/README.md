@@ -8,7 +8,6 @@ This Ansible configuration manages all VMs in the homelab infrastructure.
 - `playbooks/site.yml` - Master playbook that deploys entire infrastructure
 - `playbooks/bootstrap.yml` - Initial server setup
 - `playbooks/deploy_media.yml` - Deploy media services
-- `playbooks/deploy_monitoring.yml` - Deploy monitoring stack
 - `playbooks/services/` - Utility playbooks for specific operations
 
 ## Inventory
@@ -19,7 +18,6 @@ This Ansible configuration manages all VMs in the homelab infrastructure.
 - `group_vars/media.yml` - Media services group variables
 - `group_vars/databases.yml` - Database services group variables
 - `group_vars/container_hosts.yml` - Docker container host variables
-- `group_vars/monitoring.yml` - Monitoring stack variables
 - `group_vars/storage.yml` - Storage services variables
 - `group_vars/vault.yml` - Encrypted secrets (handled by Ansible Vault)
 
@@ -27,7 +25,6 @@ This Ansible configuration manages all VMs in the homelab infrastructure.
 - `common` - Base OS configuration (timezone, NTP)
 - `docker` - Docker installation and configuration
 - `monitoring_client` - Prometheus node exporter installation
-- `plex` - Plex Media Server
 - `sonarr` - TV show management
 - `radarr` - Movie management
 - `sabnzbd` - Usenet downloader
@@ -53,7 +50,7 @@ ansible-playbook playbooks/site.yml --limit media
 
 ### Run specific host
 ```bash
-ansible-playbook playbooks/site.yml --limit svp01plex01
+ansible-playbook playbooks/site.yml --limit svp01sonarr01
 ```
 
 ### Dry run (check mode)
@@ -65,9 +62,6 @@ ansible-playbook playbooks/site.yml --check
 ```bash
 # Deploy only media services
 ansible-playbook playbooks/deploy_media.yml
-
-# Restart Plex
-ansible-playbook playbooks/services/restart_plex.yml
 
 # Backup MSSQL
 ansible-playbook playbooks/services/backup_mssql.yml
@@ -81,13 +75,11 @@ ansible-vault edit ansible/group_vars/vault.yml
 
 Required variables:
 ```yaml
-vault_plex_token: <your_token>
 vault_sonarr_api_key: <your_key>
 vault_radarr_api_key: <your_key>
 vault_sabnzbd_api_key: <your_key>
 vault_mssql_password: <your_password>
 vault_truenas_api_token: <your_token>
-vault_grafana_admin_password: <your_password>
 vault_ansible_become_password: <your_sudo_password>
 ```
 

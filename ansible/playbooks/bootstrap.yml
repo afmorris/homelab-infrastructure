@@ -8,7 +8,7 @@
 #   correct UID/GID before any other role runs.
 #
 # NEW VM PREPARATION (Ubuntu installer):
-#   1. Set the hostname to the inventory name (e.g. svp01plex01)
+#   1. Set the hostname to the inventory name (e.g. svp01sonarr01)
 #   2. Create the default "ubuntu" user — do NOT create tony here.
 #      Ansible will create tony with the correct UID/GID (3001/3001).
 #   3. Paste your SSH public key into the installer's authorized key field.
