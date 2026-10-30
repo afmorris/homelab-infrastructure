@@ -1,0 +1,23 @@
+# Actual Budget: the family's budgeting app.
+#
+# Runs on svp01docker01 as a Portainer stack named `actual-budget`. One
+# container, one volume (/data holds the budget files and the server's
+# database). Reached at https://budget.morriscloud.com through Nginx Proxy
+# Manager (made by Home Control); Actual only works over HTTPS or localhost.
+
+services:
+  actual:
+    # Pin, and upgrade on purpose.
+    image: actualbudget/actual-server:26.10.0
+    container_name: actual-budget
+    restart: unless-stopped
+    ports:
+      # LAN only; the proxy host forwards here.
+      - "5006:5006"
+    environment:
+      TZ: America/New_York
+    volumes:
+      - actual-data:/data
+
+volumes:
+  actual-data:
