@@ -1,0 +1,37 @@
+---
+# Read-only audit of what is waiting to be updated inside each machine.
+# Changes nothing: no sudo, no apt update, no installs. It only reads apt's current view.
+#
+# Each machine prints one line that Home Control reads:
+#   AUDIT host=<name> pending=<n> security=<n> reboot=<yes|no> apt_age_hours=<n|-1> unattended=<yes|no> packages=<a,b,c>
+# Keep that format in step with AnsibleOutput.cs in the home-control repo.
+#
+# Run it from Semaphore as the template "Audit updates" (no --check, no --limit).
+
+- name: Audit pending updates
+  hosts: all,!storage
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Read apt and reboot state
+      ansible.builtin.shell: |
+        set -o pipefail
+        list=$(apt list --upgradable 2>/dev/null | grep -v '^Listing' || true)
+        pending=$(printf '%s\n' "$list" | grep -c . || true)
+        security=$(printf '%s\n' "$list" | grep -c -- '-security' || true)
+        packages=$(printf '%s\n' "$list" | cut -d/ -f1 | grep . | head -20 | paste -sd, - || true)
+        [ -f /var/run/reboot-required ] && reboot=yes || reboot=no
+        stamp=/var/lib/apt/periodic/update-success-stamp
+        if [ -f "$stamp" ]; then age=$(( ($(date +%s) - $(stat -c %Y "$stamp")) / 3600 )); else age=-1; fi
+        cfg=$(apt-config dump)
+        case "$cfg" in *'APT::Periodic::Unattended-Upgrade "1"'*) unattended=yes ;; *) unattended=no ;; esac
+        echo "pending=$pending security=$security reboot=$reboot apt_age_hours=$age unattended=$unattended packages=$packages"
+      args:
+        executable: /bin/bash
+      register: audit
+      changed_when: false
+      check_mode: false
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "AUDIT host={{ inventory_hostname }} {{ audit.stdout }}"
