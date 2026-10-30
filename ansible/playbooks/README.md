@@ -8,6 +8,7 @@ This Ansible configuration manages all VMs in the homelab infrastructure.
 - `playbooks/site.yml` - Master playbook that deploys entire infrastructure
 - `playbooks/bootstrap.yml` - Initial server setup
 - `playbooks/deploy_media.yml` - Deploy media services
+- `playbooks/audit_updates.yml` - Read-only audit of apt updates and reboot state on each machine (run from Semaphore; Home Control reads it)
 - `playbooks/services/` - Utility playbooks for specific operations
 
 ## Inventory
