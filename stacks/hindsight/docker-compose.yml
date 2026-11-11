@@ -1,0 +1,84 @@
+# Hindsight: shared memory for Claude across Tony's computers.
+#
+# Runs on svp01docker01 as a Portainer stack named `hindsight`. Claude Code on
+# each computer saves and looks up memories here over MCP, at
+# https://memory.morriscloud.com/mcp/claude/ (made with Home Control: service
+# `memory` -> `svp01docker01:8888`, http). Home network only.
+#
+# The language model that turns text into memories is NOT in this stack: it is
+# Ollama on mac-plex (192.168.3.71:11434), which has the Apple GPU. Search
+# (embeddings and reranking) runs on the CPU here, inside the hindsight image.
+#
+# Secrets come from the Portainer stack environment (see .env.example), never
+# from this file.
+
+services:
+  db:
+    # PostgreSQL with the pgvector add-on, for this stack only. Not published
+    # on the LAN: only the hindsight container talks to it.
+    image: pgvector/pgvector:0.8.7-pg18
+    container_name: hindsight-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hindsight
+      POSTGRES_PASSWORD: ${HINDSIGHT_DB_PASSWORD:?set HINDSIGHT_DB_PASSWORD}
+      POSTGRES_DB: hindsight
+      TZ: America/New_York
+    volumes:
+      # The pg18 images keep data under /var/lib/postgresql/18/docker.
+      - hindsight-db:/var/lib/postgresql/18/docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hindsight -d hindsight"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  hindsight:
+    # Pin, and upgrade on purpose (database migrations run on start).
+    image: ghcr.io/vectorize-io/hindsight:1.2.1
+    container_name: hindsight
+    restart: unless-stopped
+    # Lets a save in progress finish when the stack stops.
+    stop_grace_period: 75s
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # API and MCP; Nginx Proxy Manager forwards memory.morriscloud.com here.
+      - "8888:8888"
+      # Web console (browse banks and memories). LAN only, behind its own key.
+      - "9999:9999"
+    # The host's resolver is a loopback stub containers can't use; the router
+    # knows the home names.
+    dns:
+      - 192.168.1.1
+    environment:
+      TZ: America/New_York
+      HINDSIGHT_API_DATABASE_URL: postgresql://hindsight:${HINDSIGHT_DB_PASSWORD}@db:5432/hindsight
+
+      # Language model: Ollama on mac-plex. Hindsight turns Ollama's
+      # "thinking" off itself.
+      HINDSIGHT_API_LLM_PROVIDER: ollama
+      HINDSIGHT_API_LLM_BASE_URL: http://192.168.3.71:11434/v1
+      HINDSIGHT_API_LLM_MODEL: gemma4:e4b-it-qat
+      # Must match OLLAMA_CONTEXT_LENGTH on mac-plex.
+      HINDSIGHT_API_LLM_OLLAMA_NUM_CTX: "16384"
+      # Ollama answers one request at a time; a 16 GB Mac is slow, so wait.
+      HINDSIGHT_API_LLM_MAX_CONCURRENT: "1"
+      HINDSIGHT_API_LLM_TIMEOUT: "600"
+      # The default (64000) is far beyond this model; must stay above the
+      # 3000-character chunk size.
+      HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS: "8192"
+
+      # One key for the API and MCP: every request needs
+      # "Authorization: Bearer <key>".
+      HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
+      HINDSIGHT_API_TENANT_API_KEY: ${HINDSIGHT_API_KEY:?set HINDSIGHT_API_KEY}
+
+      # Web console: uses the API key to reach the API, and asks people for
+      # its own access key.
+      HINDSIGHT_CP_DATAPLANE_API_KEY: ${HINDSIGHT_API_KEY}
+      HINDSIGHT_CP_ACCESS_KEY: ${HINDSIGHT_CONSOLE_KEY:?set HINDSIGHT_CONSOLE_KEY}
+
+volumes:
+  hindsight-db:

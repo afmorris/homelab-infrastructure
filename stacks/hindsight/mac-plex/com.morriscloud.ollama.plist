@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Ollama for Hindsight (memory.morriscloud.com), on mac-plex.
+  Listens on the LAN (no auth: home network only). One model, one request
+  at a time, unloaded after 10 idle minutes so Plex gets the memory back.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.morriscloud.ollama</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/opt/ollama/bin/ollama</string>
+    <string>serve</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OLLAMA_HOST</key>
+    <string>0.0.0.0:11434</string>
+    <key>OLLAMA_FLASH_ATTENTION</key>
+    <string>1</string>
+    <key>OLLAMA_KV_CACHE_TYPE</key>
+    <string>q8_0</string>
+    <key>OLLAMA_MAX_LOADED_MODELS</key>
+    <string>1</string>
+    <key>OLLAMA_NUM_PARALLEL</key>
+    <string>1</string>
+    <key>OLLAMA_KEEP_ALIVE</key>
+    <string>10m</string>
+    <key>OLLAMA_CONTEXT_LENGTH</key>
+    <string>16384</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/tony/Library/Logs/ollama.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/tony/Library/Logs/ollama.log</string>
+</dict>
+</plist>
