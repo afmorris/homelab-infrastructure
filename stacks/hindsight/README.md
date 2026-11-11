@@ -15,9 +15,10 @@ svp01docker01 as a Portainer stack named `hindsight`.
   API key, Console key). Set in the Portainer stack's environment
   (`.env.example` lists them).
 - **Language model:** Ollama on mac-plex (192.168.3.71:11434), model
-  `gemma4:e4b-it-qat`, run by the LaunchAgent
-  `~/Library/LaunchAgents/com.morriscloud.ollama.plist` there (listens on the
-  LAN, one model, unloads after 10 idle minutes, 16k context). Use a non-MLX
+  `gemma4:e4b-it-qat`, run by the LaunchAgent in
+  `mac-plex/com.morriscloud.ollama.plist` (installed as
+  `~/Library/LaunchAgents/com.morriscloud.ollama.plist`; listens on the LAN
+  with no password, one model, unloads after 10 idle minutes, 16k context). Use a non-MLX
   tag: Ollama's MLX engine rejects structured output, which Hindsight needs.
   If mac-plex is off, saving new memories fails; looking them up still works.
 - **Data:** the `hindsight-db` volume (PostgreSQL 18 + pgvector), backed up
@@ -27,6 +28,9 @@ svp01docker01 as a Portainer stack named `hindsight`.
 
 ## Deploy
 
+0. On mac-plex: `brew install ollama`, copy the plist to
+   `~/Library/LaunchAgents/`, `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.morriscloud.ollama.plist`,
+   then `ollama pull gemma4:e4b-it-qat`.
 1. Make the 1Password item "Hindsight" with three fields, each from
    `openssl rand -hex 32`.
 2. Portainer -> svp01docker01 -> Stacks -> Add stack -> name `hindsight`,
