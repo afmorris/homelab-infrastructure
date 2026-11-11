@@ -46,7 +46,8 @@ services:
     ports:
       # API and MCP; Nginx Proxy Manager forwards memory.morriscloud.com here.
       - "8888:8888"
-      # Web console (browse banks and memories). LAN only, behind its own key.
+      # Web console (browse banks and memories), behind its own key.
+      # memory-web.morriscloud.com forwards here.
       - "9999:9999"
     # The host's resolver is a loopback stub containers can't use; the router
     # knows the home names.

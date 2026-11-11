@@ -9,8 +9,9 @@ svp01docker01 as a Portainer stack named `hindsight`.
 - **Claude Code** connects over MCP to the shared bank `claude`:
   `https://memory.morriscloud.com/mcp/claude/` with header
   `Authorization: Bearer <API key>`.
-- **Web console:** http://svp01docker01:9999 (LAN only), log in with the
-  console key.
+- **Web console:** https://memory-web.morriscloud.com (Home Control service
+  `memory-web` -> `svp01docker01:9999`, http, websockets on). Home network
+  only; log in with the console key.
 - **Secrets:** 1Password, Home vault, item "Hindsight" (fields DB password,
   API key, Console key). Set in the Portainer stack's environment
   (`.env.example` lists them).
@@ -38,4 +39,5 @@ svp01docker01 as a Portainer stack named `hindsight`.
    environment variables from `.env.example`.
 3. Check: `curl -s -H "Authorization: Bearer <API key>" http://svp01docker01:8888/v1/default/banks`
    answers, and without the header it answers 401.
-4. Home Control: create service `memory` -> `svp01docker01:8888`.
+4. Home Control: create service `memory` -> `svp01docker01:8888`, and
+   `memory-web` -> `svp01docker01:9999` (websockets on).
