@@ -11,7 +11,7 @@
 services:
   semaphore:
     # Pin, and upgrade on purpose.
-    image: semaphoreui/semaphore:v2.10.22
+    image: semaphoreui/semaphore:v2.20.24
     container_name: semaphore
     restart: unless-stopped
     ports:
@@ -26,7 +26,8 @@ services:
       - morriscloud.com
     environment:
       TZ: America/New_York
-      SEMAPHORE_DB_DIALECT: bolt
+      SEMAPHORE_DB_DIALECT: sqlite
+      SEMAPHORE_DB_HOST: /var/lib/semaphore/database.sqlite
       SEMAPHORE_ADMIN: admin
       SEMAPHORE_ADMIN_NAME: Tony
       SEMAPHORE_ADMIN_EMAIL: tony@morriscloud.com
